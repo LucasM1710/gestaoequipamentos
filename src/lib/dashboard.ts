@@ -61,6 +61,20 @@ export function buildDashboardMetrics(
     return true;
   });
 
+  const calibracoesRealizadasKeys = new Set(
+    scopedCalibracoes
+      .filter((item) => item.realizado)
+      .map((item) => `${item.equipamento_id}::${item.data_calibracao}`),
+  );
+
+  const fallbackCalibracoesImportadas = scoped
+    .filter((item) => item.ultima_calibracao)
+    .filter((item) => {
+      const date = parseISO(item.ultima_calibracao as string);
+      return getYear(date) === currentYear;
+    })
+    .filter((item) => !calibracoesRealizadasKeys.has(`${item.id}::${item.ultima_calibracao}`));
+
   const previstoPorMes = monthLabels.map((mes, index) => {
     const previsto = scoped.filter((item) => {
       if (!item.proxima_calibracao) {
@@ -70,12 +84,17 @@ export function buildDashboardMetrics(
       return date.getMonth() === index && getYear(date) === currentYear;
     }).length;
 
-    const executado = scopedCalibracoes.filter((item) => {
+    const executadoHistorico = scopedCalibracoes.filter((item) => {
       const date = parseISO(item.data_calibracao);
       return item.realizado && date.getMonth() === index && getYear(date) === currentYear;
     }).length;
 
-    return { mes, previsto, executado };
+    const executadoFallback = fallbackCalibracoesImportadas.filter((item) => {
+      const date = parseISO(item.ultima_calibracao as string);
+      return date.getMonth() === index;
+    }).length;
+
+    return { mes, previsto, executado: executadoHistorico + executadoFallback };
   });
 
   const crmResumo = Object.entries(crmLabels).map(([coluna, label]) => ({
@@ -105,10 +124,11 @@ export function buildDashboardMetrics(
   });
 
   return {
-    calibracoesRealizadas: scopedCalibracoes.filter((item) => {
-      const date = parseISO(item.data_calibracao);
-      return item.realizado && getYear(date) === currentYear;
-    }).length,
+    calibracoesRealizadas:
+      scopedCalibracoes.filter((item) => {
+        const date = parseISO(item.data_calibracao);
+        return item.realizado && getYear(date) === currentYear;
+      }).length + fallbackCalibracoesImportadas.length,
     equipamentosAtivos: allScoped.length,
     equipamentosVencidos: status.vencido,
     previstoPorMes,

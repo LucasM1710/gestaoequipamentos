@@ -52,7 +52,7 @@ function toNullableText(value: string | undefined) {
 async function parseSpreadsheetFile(file: File): Promise<SpreadsheetImportRow[]> {
   const XLSX = await import("xlsx");
   const buffer = await file.arrayBuffer();
-  const workbook = XLSX.read(buffer, { type: "array" });
+  const workbook = XLSX.read(buffer, { type: "array", cellDates: true });
   const firstSheetName = workbook.SheetNames[0];
   const worksheet = workbook.Sheets[firstSheetName];
 
@@ -64,6 +64,14 @@ async function parseSpreadsheetFile(file: File): Promise<SpreadsheetImportRow[]>
 
   return rows.map((row) =>
     Object.entries(row).reduce<SpreadsheetImportRow>((acc, [key, value]) => {
+      if (value instanceof Date && !Number.isNaN(value.getTime())) {
+        const day = String(value.getDate()).padStart(2, "0");
+        const month = String(value.getMonth() + 1).padStart(2, "0");
+        const year = String(value.getFullYear());
+        acc[key] = `${day}/${month}/${year}`;
+        return acc;
+      }
+
       acc[key] = value === null || value === undefined ? "" : String(value).trim();
       return acc;
     }, {}),

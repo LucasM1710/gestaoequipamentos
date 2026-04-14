@@ -18,7 +18,7 @@ const labels: Record<CrmColuna, string> = {
   aguardando_retorno: "Aguardando retorno",
   em_contato: "Em contato",
   agendado: "Agendado",
-  calibrado: "Calibrado",
+  calibrado: "Realizado",
   perdido: "Sem contato",
 };
 

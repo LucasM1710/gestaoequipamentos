@@ -173,6 +173,15 @@ function parsePtDate(value: string | null) {
     return null;
   }
 
+  if (/^\d{5,6}$/.test(trimmed)) {
+    const excelSerial = Number(trimmed);
+    if (!Number.isNaN(excelSerial)) {
+      const excelEpoch = new Date(Date.UTC(1899, 11, 30));
+      excelEpoch.setUTCDate(excelEpoch.getUTCDate() + excelSerial);
+      return excelEpoch.toISOString().slice(0, 10);
+    }
+  }
+
   if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
     return trimmed;
   }
@@ -218,6 +227,16 @@ function parsePtDate(value: string | null) {
   }
 
   return null;
+}
+
+function addDays(dateString: string, days: number) {
+  const baseDate = new Date(`${dateString}T00:00:00.000Z`);
+  if (Number.isNaN(baseDate.getTime())) {
+    return null;
+  }
+
+  baseDate.setUTCDate(baseDate.getUTCDate() + days);
+  return baseDate.toISOString().slice(0, 10);
 }
 
 function resolveCsvUrl() {
@@ -432,6 +451,7 @@ Deno.serve(async (request) => {
     const usersByName = new Map(allUsers.map((user) => [normalizeText(user.full_name), user]));
 
     const equipmentPayloads: Array<Record<string, unknown>> = [];
+    const importedUltimasBySerial = new Map<string, string>();
     const ownerUpdates = new Map<string, Partial<SheetUser>>();
     const crmUpdates = new Map<string, { owner_id: string; coluna: string }>();
     const stats: SyncStats = {
@@ -516,14 +536,26 @@ Deno.serve(async (request) => {
         coluna: mapContactStatusToColumn(statusContato),
       });
 
+      const ultimaCalibracao = parsePtDate(
+        toNullable(getField(row, ["Ultima Calibracao", "Ultima calibração", "Ult. Cal.", "Ult Cal"])),
+      );
+      const proximaCalibracaoPlanilha = parsePtDate(
+        toNullable(getField(row, ["Proxima calibracao", "Próxima calibração", "Prox. Cal.", "Prox Cal"])),
+      );
+      const proximaCalibracao = proximaCalibracaoPlanilha ?? (ultimaCalibracao ? addDays(ultimaCalibracao, 365) : null);
+
+      if (ultimaCalibracao) {
+        importedUltimasBySerial.set(serialNumber, ultimaCalibracao);
+      }
+
       equipmentPayloads.push({
         serial_number: serialNumber,
         equipamento: getField(row, ["Equipamento"]) || "Nao informado",
         brand: toNullable(getField(row, ["Brand"])),
         model: toNullable(getField(row, ["Model"])),
         owner_id: owner.id,
-        ultima_calibracao: parsePtDate(toNullable(getField(row, ["Ultima Calibracao", "Ultima calibração"]))),
-        proxima_calibracao: parsePtDate(toNullable(getField(row, ["Proxima calibracao", "Próxima calibração"]))),
+        ultima_calibracao: ultimaCalibracao,
+        proxima_calibracao: proximaCalibracao,
         certificado: toNullable(getField(row, ["Certificate", "Certificado"])),
         district,
         region_state: toNullable(getField(row, ["Region/State", "Region State", "UF"])),
@@ -571,6 +603,65 @@ Deno.serve(async (request) => {
       return jsonResponse({ error: equipamentoUpsertError.message }, { status: 400 });
     }
 
+    const importedSerials = equipmentPayloads.map((item) => String(item.serial_number));
+    const { data: importedEquipamentos, error: importedEquipamentosError } = await adminClient
+      .from("equipamentos")
+      .select("id, serial_number")
+      .in("serial_number", importedSerials);
+
+    if (importedEquipamentosError) {
+      return jsonResponse({ error: importedEquipamentosError.message }, { status: 400 });
+    }
+
+    const importedEquipmentList = (importedEquipamentos ?? []) as Array<{ id: string; serial_number: string }>;
+
+    if (importedEquipmentList.length > 0) {
+      const { data: existingCalibracoes, error: calibracoesError } = await adminClient
+        .from("calibracoes")
+        .select("equipamento_id, data_calibracao, realizado")
+        .in(
+          "equipamento_id",
+          importedEquipmentList.map((item) => item.id),
+        );
+
+      if (calibracoesError) {
+        return jsonResponse({ error: calibracoesError.message }, { status: 400 });
+      }
+
+      const existingKeys = new Set(
+        ((existingCalibracoes ?? []) as Array<{ equipamento_id: string; data_calibracao: string; realizado: boolean }>).map(
+          (item) => `${item.equipamento_id}::${item.data_calibracao}::${item.realizado ? "1" : "0"}`,
+        ),
+      );
+
+      const calibracaoPayload = importedEquipmentList.flatMap((item) => {
+        const ultimaCalibracao = importedUltimasBySerial.get(item.serial_number);
+        if (!ultimaCalibracao) {
+          return [];
+        }
+
+        const key = `${item.id}::${ultimaCalibracao}::1`;
+        if (existingKeys.has(key)) {
+          return [];
+        }
+
+        return [
+          {
+            equipamento_id: item.id,
+            data_calibracao: ultimaCalibracao,
+            realizado: true,
+          },
+        ];
+      });
+
+      if (calibracaoPayload.length > 0) {
+        const { error: insertCalibracoesError } = await adminClient.from("calibracoes").insert(calibracaoPayload);
+        if (insertCalibracoesError) {
+          return jsonResponse({ error: insertCalibracoesError.message }, { status: 400 });
+        }
+      }
+    }
+
     const crmPayload = Array.from(crmUpdates.values()).map((item) => ({
       owner_id: item.owner_id,
       coluna: item.coluna,
@@ -608,3 +699,4 @@ Deno.serve(async (request) => {
     );
   }
 });
+

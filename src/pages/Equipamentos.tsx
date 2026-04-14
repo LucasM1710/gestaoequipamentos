@@ -92,6 +92,7 @@ export function Equipamentos() {
         <Input
           placeholder="Buscar por serial ou owner"
           value={filters.search}
+          autoComplete="off"
           onChange={(event) => setFilters((current) => ({ ...current, search: event.target.value }))}
         />
         <Select
@@ -287,7 +288,7 @@ export function Equipamentos() {
         open={resetOpen}
         onClose={() => setResetOpen(false)}
         title="Resetar equipamentos"
-        description="Essa acao remove todos os equipamentos e dependencias diretas. Informe a senha para confirmar."
+        description="Essa acao remove todos os equipamentos e dependencias diretas. Informe a senha exclusiva de reset para confirmar."
         widthClassName="max-w-lg"
       >
         <div className="space-y-4">
@@ -296,8 +297,9 @@ export function Equipamentos() {
             <Input
               type="password"
               value={resetPassword}
+              autoComplete="new-password"
               onChange={(event) => setResetPassword(event.target.value)}
-              placeholder="Digite a senha"
+              placeholder="Digite a senha de reset"
             />
           </div>
           <div className="flex justify-end gap-3">

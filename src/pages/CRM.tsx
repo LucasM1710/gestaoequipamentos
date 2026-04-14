@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { KanbanBoard } from "@/components/crm/KanbanBoard";
 import { ModalCard } from "@/components/crm/ModalCard";
+import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { useAuth } from "@/hooks/useAuth";
 import { useCRM } from "@/hooks/useCRM";
@@ -12,22 +13,26 @@ export function CRM() {
   const { columns, interactions, attachments, emailLogs, equipamentos, users, isLoading, moveCard, addNote, openAttachment } = useCRM();
   const [selectedCard, setSelectedCard] = useState<CrmCard | null>(null);
   const [leaderFilter, setLeaderFilter] = useState("todos");
+  const [ownerFilter, setOwnerFilter] = useState("");
 
   const lideres = useMemo(() => users.filter((user) => user.role === "lider"), [users]);
 
   const filteredColumns = useMemo(() => {
-    if (role !== "admin" || leaderFilter === "todos") {
-      return columns;
-    }
-
     return columns.map((column) => ({
       ...column,
       cards: column.cards.filter((card) => {
         const owner = users.find((user) => user.id === card.owner_id);
-        return owner?.lider_id === leaderFilter;
+        const matchesLeader =
+          role !== "admin" || leaderFilter === "todos" ? true : owner?.lider_id === leaderFilter;
+        const matchesOwner =
+          ownerFilter.trim() === ""
+            ? true
+            : owner?.full_name.toLowerCase().includes(ownerFilter.trim().toLowerCase());
+
+        return matchesLeader && matchesOwner;
       }),
     }));
-  }, [columns, leaderFilter, role, users]);
+  }, [columns, leaderFilter, ownerFilter, role, users]);
 
   const selectedOwner = users.find((user) => user.id === selectedCard?.owner_id);
   const selectedLeader = users.find((user) => user.id === selectedOwner?.lider_id);
@@ -40,19 +45,28 @@ export function CRM() {
           <h1 className="text-xl font-semibold tracking-[-0.03em] text-textPrimary">Registro de contatos</h1>
           <p className="mt-0.5 text-sm text-textSecondary">Cards por owner com historico de interacoes e e-mails.</p>
         </div>
-        <Select
-          disabled={role !== "admin"}
-          value={role === "lider" ? profile?.id ?? "todos" : leaderFilter}
-          onChange={(event) => setLeaderFilter(event.target.value)}
-          className="w-[220px]"
-        >
-          <option value="todos">Todos os lideres</option>
-          {lideres.map((lider) => (
-            <option key={lider.id} value={lider.id}>
-              {lider.full_name}
-            </option>
-          ))}
-        </Select>
+        <div className="flex flex-wrap items-center gap-3">
+          <Input
+            value={ownerFilter}
+            onChange={(event) => setOwnerFilter(event.target.value)}
+            placeholder="Buscar por owner"
+            autoComplete="off"
+            className="w-[220px]"
+          />
+          <Select
+            disabled={role !== "admin"}
+            value={role === "lider" ? profile?.id ?? "todos" : leaderFilter}
+            onChange={(event) => setLeaderFilter(event.target.value)}
+            className="w-[220px]"
+          >
+            <option value="todos">Todos os lideres</option>
+            {lideres.map((lider) => (
+              <option key={lider.id} value={lider.id}>
+                {lider.full_name}
+              </option>
+            ))}
+          </Select>
+        </div>
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-borderSoft bg-appBg px-4 py-3">
