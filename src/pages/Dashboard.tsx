@@ -105,7 +105,7 @@ export function Dashboard() {
       <KpiCards
         items={[
           { label: "Equipamentos cadastrados", value: metrics.equipamentosAtivos },
-          { label: "Calibracoes realizadas", value: metrics.calibracoesRealizadas },
+          { label: "Equipamentos calibrados", value: metrics.equipamentosCalibrados },
           { label: "Equipamentos vencidos", value: metrics.equipamentosVencidos, tone: "alert" },
         ]}
       />

@@ -190,6 +190,7 @@ export interface RelatorioFiltro {
 
 export interface DashboardMetrics {
   calibracoesRealizadas: number;
+  equipamentosCalibrados: number;
   equipamentosAtivos: number;
   equipamentosVencidos: number;
   previstoPorMes: Array<{ mes: string; previsto: number; executado: number }>;

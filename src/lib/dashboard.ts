@@ -129,6 +129,7 @@ export function buildDashboardMetrics(
         const date = parseISO(item.data_calibracao);
         return item.realizado && getYear(date) === currentYear;
       }).length + fallbackCalibracoesImportadas.length,
+    equipamentosCalibrados: status.calibrado,
     equipamentosAtivos: allScoped.length,
     equipamentosVencidos: status.vencido,
     previstoPorMes,

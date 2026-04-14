@@ -8,7 +8,7 @@ interface KpiCardsProps {
 
 const iconMap: Record<string, typeof Activity> = {
   "Equipamentos cadastrados": PackageCheck,
-  "Calibracoes realizadas": Activity,
+  "Equipamentos calibrados": Activity,
   "Equipamentos vencidos": AlertTriangle,
 };
 
