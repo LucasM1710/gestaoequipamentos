@@ -239,6 +239,16 @@ function addDays(dateString: string, days: number) {
   return baseDate.toISOString().slice(0, 10);
 }
 
+function chunkArray<T>(items: T[], size: number) {
+  const chunks: T[][] = [];
+
+  for (let index = 0; index < items.length; index += size) {
+    chunks.push(items.slice(index, index + size));
+  }
+
+  return chunks;
+}
+
 function resolveCsvUrl() {
   const directCsvUrl = Deno.env.get("GOOGLE_SHEET_CSV_URL");
   if (directCsvUrl) {
@@ -595,6 +605,38 @@ Deno.serve(async (request) => {
       return jsonResponse({ error: ownerUpsertError.message }, { status: 400 });
     }
 
+    const importedSerials = equipmentPayloads.map((item) => String(item.serial_number));
+    const importedOwnerIds = Array.from(new Set(Array.from(crmUpdates.values()).map((item) => item.owner_id)));
+    const { data: existingEquipamentos, error: existingEquipamentosError } = await adminClient
+      .from("equipamentos")
+      .select("id, serial_number");
+
+    if (existingEquipamentosError) {
+      return jsonResponse({ error: existingEquipamentosError.message }, { status: 400 });
+    }
+
+    const equipamentosParaRemover = ((existingEquipamentos ?? []) as Array<{ id: string; serial_number: string }>).filter(
+      (item) => !importedSerials.includes(String(item.serial_number)),
+    );
+
+    for (const equipamentoChunk of chunkArray(equipamentosParaRemover, 100)) {
+      const equipmentIds = equipamentoChunk.map((item) => item.id);
+
+      const { error: emailLogsCleanupError } = await adminClient
+        .from("email_logs")
+        .update({ equipamento_id: null })
+        .in("equipamento_id", equipmentIds);
+
+      if (emailLogsCleanupError) {
+        return jsonResponse({ error: emailLogsCleanupError.message }, { status: 400 });
+      }
+
+      const { error: equipamentosDeleteError } = await adminClient.from("equipamentos").delete().in("id", equipmentIds);
+      if (equipamentosDeleteError) {
+        return jsonResponse({ error: equipamentosDeleteError.message }, { status: 400 });
+      }
+    }
+
     const { error: equipamentoUpsertError } = await adminClient
       .from("equipamentos")
       .upsert(equipmentPayloads, { onConflict: "serial_number" });
@@ -603,35 +645,46 @@ Deno.serve(async (request) => {
       return jsonResponse({ error: equipamentoUpsertError.message }, { status: 400 });
     }
 
-    const importedSerials = equipmentPayloads.map((item) => String(item.serial_number));
-    const { data: importedEquipamentos, error: importedEquipamentosError } = await adminClient
-      .from("equipamentos")
-      .select("id, serial_number")
-      .in("serial_number", importedSerials);
+    const importedEquipamentos: Array<{ id: string; serial_number: string }> = [];
 
-    if (importedEquipamentosError) {
-      return jsonResponse({ error: importedEquipamentosError.message }, { status: 400 });
+    for (const serialChunk of chunkArray(importedSerials, 100)) {
+      const { data: importedEquipamentosChunk, error: importedEquipamentosError } = await adminClient
+        .from("equipamentos")
+        .select("id, serial_number")
+        .in("serial_number", serialChunk);
+
+      if (importedEquipamentosError) {
+        return jsonResponse({ error: importedEquipamentosError.message }, { status: 400 });
+      }
+
+      importedEquipamentos.push(...((importedEquipamentosChunk ?? []) as Array<{ id: string; serial_number: string }>));
     }
 
-    const importedEquipmentList = (importedEquipamentos ?? []) as Array<{ id: string; serial_number: string }>;
+    const importedEquipmentList = importedEquipamentos;
 
     if (importedEquipmentList.length > 0) {
-      const { data: existingCalibracoes, error: calibracoesError } = await adminClient
-        .from("calibracoes")
-        .select("equipamento_id, data_calibracao, realizado")
-        .in(
-          "equipamento_id",
-          importedEquipmentList.map((item) => item.id),
-        );
+      const existingCalibracoes: Array<{ equipamento_id: string; data_calibracao: string; realizado: boolean }> = [];
 
-      if (calibracoesError) {
-        return jsonResponse({ error: calibracoesError.message }, { status: 400 });
+      for (const equipamentoIdsChunk of chunkArray(
+        importedEquipmentList.map((item) => item.id),
+        100,
+      )) {
+        const { data: calibracoesChunk, error: calibracoesError } = await adminClient
+          .from("calibracoes")
+          .select("equipamento_id, data_calibracao, realizado")
+          .in("equipamento_id", equipamentoIdsChunk);
+
+        if (calibracoesError) {
+          return jsonResponse({ error: calibracoesError.message }, { status: 400 });
+        }
+
+        existingCalibracoes.push(
+          ...((calibracoesChunk ?? []) as Array<{ equipamento_id: string; data_calibracao: string; realizado: boolean }>),
+        );
       }
 
       const existingKeys = new Set(
-        ((existingCalibracoes ?? []) as Array<{ equipamento_id: string; data_calibracao: string; realizado: boolean }>).map(
-          (item) => `${item.equipamento_id}::${item.data_calibracao}::${item.realizado ? "1" : "0"}`,
-        ),
+        existingCalibracoes.map((item) => `${item.equipamento_id}::${item.data_calibracao}::${item.realizado ? "1" : "0"}`),
       );
 
       const calibracaoPayload = importedEquipmentList.flatMap((item) => {
@@ -666,6 +719,26 @@ Deno.serve(async (request) => {
       owner_id: item.owner_id,
       coluna: item.coluna,
     }));
+
+    const { data: existingCrmCards, error: existingCrmCardsError } = await adminClient
+      .from("crm_cards")
+      .select("owner_id");
+
+    if (existingCrmCardsError) {
+      return jsonResponse({ error: existingCrmCardsError.message }, { status: 400 });
+    }
+
+    const crmOwnerIdsParaRemover = ((existingCrmCards ?? []) as Array<{ owner_id: string }>).filter(
+      (item) => !importedOwnerIds.includes(item.owner_id),
+    );
+
+    for (const ownerChunk of chunkArray(crmOwnerIdsParaRemover, 100)) {
+      const ownerIds = ownerChunk.map((item) => item.owner_id);
+      const { error: crmDeleteError } = await adminClient.from("crm_cards").delete().in("owner_id", ownerIds);
+      if (crmDeleteError) {
+        return jsonResponse({ error: crmDeleteError.message }, { status: 400 });
+      }
+    }
 
     if (crmPayload.length > 0) {
       const { error: crmError } = await adminClient.from("crm_cards").upsert(crmPayload, { onConflict: "owner_id" });

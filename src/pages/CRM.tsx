@@ -40,11 +40,10 @@ export function CRM() {
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-borderSoft pb-5">
-        <div>
-          <h1 className="text-xl font-semibold tracking-[-0.03em] text-textPrimary">Registro de contatos</h1>
-          <p className="mt-0.5 text-sm text-textSecondary">Cards por owner com historico de interacoes e e-mails.</p>
-        </div>
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-borderSoft bg-appBg px-4 py-3">
+        <p className="text-sm text-textSecondary">
+          Arraste os cards entre as colunas. A movimentacao atualiza o CRM e registra a interacao automaticamente.
+        </p>
         <div className="flex flex-wrap items-center gap-3">
           <Input
             value={ownerFilter}
@@ -66,14 +65,8 @@ export function CRM() {
               </option>
             ))}
           </Select>
+          <span className="text-xs font-medium text-textSecondary">{totalCards} cards monitorados</span>
         </div>
-      </div>
-
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-borderSoft bg-appBg px-4 py-3">
-        <p className="text-sm text-textSecondary">
-          Arraste os cards entre as colunas. A movimentacao atualiza o CRM e registra a interacao automaticamente.
-        </p>
-        <span className="text-xs font-medium text-textSecondary">{totalCards} cards monitorados</span>
       </div>
 
       {isLoading ? <p className="text-sm text-textSecondary">Carregando CRM...</p> : null}
