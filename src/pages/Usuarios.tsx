@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { ModalUsuario } from "@/components/usuarios/ModalUsuario";
@@ -8,11 +8,13 @@ import { useUsuarios } from "@/hooks/useUsuarios";
 import type { AppUser } from "@/types";
 
 export function Usuarios() {
-  const { users, lideres, isLoading, saveUsuario, toggleUserActive } = useUsuarios();
+  const { users, lideres, isLoading, saveUsuario, toggleUserActive, uploadUsersSheet, downloadModeloPlanilha } =
+    useUsuarios();
   const [searchParams, setSearchParams] = useSearchParams();
   const [selected, setSelected] = useState<AppUser | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [search, setSearch] = useState("");
+  const spreadsheetInputRef = useRef<HTMLInputElement | null>(null);
 
   const filteredUsers = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -52,14 +54,32 @@ export function Usuarios() {
           <h1 className="text-xl font-semibold tracking-[-0.03em] text-textPrimary">Usuarios</h1>
           <p className="mt-0.5 text-sm text-textSecondary">Provisionamento e hierarquia lider/owner.</p>
         </div>
-        <Button
-          onClick={() => {
-            setSelected(null);
-            setModalOpen(true);
-          }}
-        >
-          Cadastrar usuario
-        </Button>
+        <div className="flex flex-wrap items-center gap-3">
+          <Button variant="ghost" onClick={() => spreadsheetInputRef.current?.click()}>
+            Upload de planilha
+          </Button>
+          <Button
+            variant="secondary"
+            onClick={async () => {
+              try {
+                await downloadModeloPlanilha();
+                toast.success("Modelo de planilha de usuarios baixado.");
+              } catch (error) {
+                toast.error(error instanceof Error ? error.message : "Falha ao gerar modelo.");
+              }
+            }}
+          >
+            Baixar modelo
+          </Button>
+          <Button
+            onClick={() => {
+              setSelected(null);
+              setModalOpen(true);
+            }}
+          >
+            Cadastrar usuario
+          </Button>
+        </div>
       </div>
 
       <div className="max-w-md">
@@ -86,6 +106,31 @@ export function Usuarios() {
             toast.success(`Usuario ${user.active ? "desativado" : "ativado"} com sucesso.`);
           } catch (error) {
             toast.error(error instanceof Error ? error.message : "Falha ao atualizar status do usuario.");
+          }
+        }}
+      />
+      <input
+        ref={spreadsheetInputRef}
+        type="file"
+        accept=".xlsx,.xls,.csv"
+        className="hidden"
+        onChange={async (event) => {
+          const file = event.target.files?.[0];
+          event.currentTarget.value = "";
+
+          if (!file) {
+            return;
+          }
+
+          try {
+            const result = await uploadUsersSheet(file);
+            const message =
+              typeof result === "object" && result && "message" in result
+                ? String(result.message)
+                : "Planilha de usuarios importada com sucesso.";
+            toast.success(message);
+          } catch (error) {
+            toast.error(error instanceof Error ? error.message : "Falha ao importar usuarios.");
           }
         }}
       />

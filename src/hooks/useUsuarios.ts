@@ -7,8 +7,42 @@ import { invokeEdgeFunction } from "@/services/emailService";
 import { registerLog } from "@/services/logService";
 import type { AppUser } from "@/types";
 
+type SpreadsheetImportRow = Record<string, string>;
+
+const spreadsheetTemplateRow = {
+  "Nome Completo": "",
+  "E-mail": "",
+  Telefone: "",
+  Distrito: "",
+  Role: "usuario",
+  Lider: "",
+  "E-mail Lider": "",
+  Status: "Ativo",
+};
+
 function toNullableText(value: string | undefined) {
   return value ? value : null;
+}
+
+async function parseSpreadsheetFile(file: File): Promise<SpreadsheetImportRow[]> {
+  const XLSX = await import("xlsx");
+  const buffer = await file.arrayBuffer();
+  const workbook = XLSX.read(buffer, { type: "array", cellDates: true });
+  const firstSheetName = workbook.SheetNames[0];
+  const worksheet = workbook.Sheets[firstSheetName];
+
+  if (!worksheet) {
+    throw new Error("A planilha nao possui abas validas.");
+  }
+
+  const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(worksheet, { defval: "" });
+
+  return rows.map((row) =>
+    Object.entries(row).reduce<SpreadsheetImportRow>((acc, [key, value]) => {
+      acc[key] = value === null || value === undefined ? "" : String(value).trim();
+      return acc;
+    }, {}),
+  );
 }
 
 export interface UserProvisionResult {
@@ -169,6 +203,34 @@ export function useUsuarios() {
     }
   }
 
+  async function uploadUsersSheet(file: File) {
+    const rows = await parseSpreadsheetFile(file);
+
+    if (rows.length === 0) {
+      throw new Error("A planilha de usuarios esta vazia.");
+    }
+
+    if (!isSupabaseConfigured || !supabase) {
+      return {
+        success: true,
+        imported: rows.length,
+        message: "Upload de usuarios simulado em modo local.",
+      };
+    }
+
+    const result = await invokeEdgeFunction("sync-users-sheet", { rows });
+    await loadData();
+    return result;
+  }
+
+  async function downloadModeloPlanilha() {
+    const XLSX = await import("xlsx");
+    const worksheet = XLSX.utils.json_to_sheet([spreadsheetTemplateRow]);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Usuarios");
+    XLSX.writeFile(workbook, "modelo-usuarios-er-analitica.xlsx");
+  }
+
   return {
     users,
     lideres,
@@ -176,5 +238,7 @@ export function useUsuarios() {
     refresh: loadData,
     saveUsuario,
     toggleUserActive,
+    uploadUsersSheet,
+    downloadModeloPlanilha,
   };
 }
