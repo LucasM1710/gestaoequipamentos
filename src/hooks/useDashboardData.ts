@@ -38,6 +38,10 @@ export function useDashboardData(role: UserRole | null, actorUserId?: string | n
       return;
     }
 
+    if (!role || !actorUserId) {
+      return;
+    }
+
     if (canLoadConsolidatedDashboard(role)) {
       const payload = (await invokeEdgeFunction("dashboard-data", {})) as DashboardDataPayload;
 
@@ -99,7 +103,7 @@ export function useDashboardData(role: UserRole | null, actorUserId?: string | n
     return () => {
       mounted = false;
     };
-  }, [role]);
+  }, [actorUserId, role]);
 
   async function updateReviewRequestStatus(
     request: ReviewRequest,
