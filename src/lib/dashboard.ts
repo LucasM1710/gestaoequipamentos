@@ -17,19 +17,35 @@ interface DashboardMetricSources {
   reviewRequests: ReviewRequest[];
 }
 
+export function getDashboardDistrict(item: Pick<EquipamentoVisao, "district" | "owner_district">) {
+  const equipamentoDistrict = item.district?.trim();
+  if (equipamentoDistrict) {
+    return equipamentoDistrict;
+  }
+
+  const ownerDistrict = item.owner_district?.trim();
+  if (ownerDistrict) {
+    return ownerDistrict;
+  }
+
+  return "Sem distrito";
+}
+
+function matchesDashboardDistrict(item: EquipamentoVisao, district: string) {
+  if (!district || district === "todos") {
+    return true;
+  }
+
+  return getDashboardDistrict(item) === district;
+}
+
 export function buildDashboardMetrics(
   items: EquipamentoVisao[],
   district: string,
   isAdmin: boolean,
   sources: DashboardMetricSources,
 ): DashboardMetrics {
-  const allScoped = items.filter((item) => {
-    if (district && district !== "todos") {
-      return item.owner_district === district;
-    }
-
-    return true;
-  });
+  const allScoped = items.filter((item) => matchesDashboardDistrict(item, district));
 
   const equipmentById = new Map(items.map((item) => [item.id, item]));
   const scoped = items.filter((item) => {
@@ -37,11 +53,7 @@ export function buildDashboardMetrics(
       return false;
     }
 
-    if (district && district !== "todos") {
-      return item.owner_district === district;
-    }
-
-    return true;
+    return matchesDashboardDistrict(item, district);
   });
 
   const currentYear = new Date().getFullYear();
@@ -55,7 +67,7 @@ export function buildDashboardMetrics(
     }
 
     if (district && district !== "todos") {
-      return equipamento.owner_district === district;
+      return matchesDashboardDistrict(equipamento, district);
     }
 
     return true;
@@ -105,7 +117,7 @@ export function buildDashboardMetrics(
 
   const distritosMap = new Map<string, EquipamentoVisao[]>();
   scoped.forEach((item) => {
-    const key = item.owner_district ?? "Sem distrito";
+    const key = getDashboardDistrict(item);
     const current = distritosMap.get(key) ?? [];
     current.push(item);
     distritosMap.set(key, current);

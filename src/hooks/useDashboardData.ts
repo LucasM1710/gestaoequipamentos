@@ -1,8 +1,21 @@
 import { useEffect, useState } from "react";
 import { mockCalibracoes, mockCrmCards, mockEquipamentos, mockReviewRequests, mockUsers } from "@/lib/mockData";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
+import { invokeEdgeFunction } from "@/services/emailService";
 import { registerLog } from "@/services/logService";
 import type { AppUser, Calibracao, CrmCard, EquipamentoVisao, ReviewRequest, ReviewRequestStatus, UserRole } from "@/types";
+
+interface DashboardDataPayload {
+  equipamentos?: EquipamentoVisao[];
+  calibracoes?: Calibracao[];
+  crmCards?: CrmCard[];
+  reviewRequests?: ReviewRequest[];
+  users?: AppUser[];
+}
+
+function canLoadConsolidatedDashboard(role: UserRole | null) {
+  return role === "admin" || role === "gestor" || role === "lider";
+}
 
 export function useDashboardData(role: UserRole | null, actorUserId?: string | null) {
   const [equipamentos, setEquipamentos] = useState<EquipamentoVisao[]>(isSupabaseConfigured ? [] : mockEquipamentos);
@@ -21,6 +34,18 @@ export function useDashboardData(role: UserRole | null, actorUserId?: string | n
       setCrmCards(mockCrmCards);
       setReviewRequests(mockReviewRequests);
       setUsers(mockUsers);
+      setIsLoading(false);
+      return;
+    }
+
+    if (canLoadConsolidatedDashboard(role)) {
+      const payload = (await invokeEdgeFunction("dashboard-data", {})) as DashboardDataPayload;
+
+      setEquipamentos(payload.equipamentos ?? []);
+      setCalibracoes(payload.calibracoes ?? []);
+      setCrmCards(payload.crmCards ?? []);
+      setReviewRequests(payload.reviewRequests ?? []);
+      setUsers(payload.users ?? []);
       setIsLoading(false);
       return;
     }
@@ -57,16 +82,7 @@ export function useDashboardData(role: UserRole | null, actorUserId?: string | n
     setCrmCards((crmCardsResponse.data as CrmCard[] | null) ?? []);
     setUsers((usersResponse.data as AppUser[] | null) ?? []);
 
-    if (role === "admin") {
-      const { data, error } = await supabase.from("review_requests").select("*").order("created_at", { ascending: false });
-      if (error) {
-        setIsLoading(false);
-        throw error;
-      }
-      setReviewRequests((data as ReviewRequest[] | null) ?? []);
-    } else {
-      setReviewRequests([]);
-    }
+    setReviewRequests([]);
 
     setIsLoading(false);
   }

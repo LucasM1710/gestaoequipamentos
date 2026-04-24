@@ -9,7 +9,7 @@ import { ReviewRequestsPanel } from "@/components/dashboard/ReviewRequestsPanel"
 import { TabelaDistritos } from "@/components/dashboard/TabelaDistritos";
 import { useAuth } from "@/hooks/useAuth";
 import { useDashboardData } from "@/hooks/useDashboardData";
-import { buildDashboardMetrics } from "@/lib/dashboard";
+import { buildDashboardMetrics, getDashboardDistrict } from "@/lib/dashboard";
 import { toast } from "sonner";
 
 export function Dashboard() {
@@ -36,7 +36,7 @@ export function Dashboard() {
   );
 
   const districts = useMemo(() => {
-    const unique = Array.from(new Set(equipamentos.map((item) => item.owner_district).filter(Boolean)));
+    const unique = Array.from(new Set(equipamentos.map((item) => getDashboardDistrict(item)).filter(Boolean)));
     return ["todos", ...unique] as string[];
   }, [equipamentos]);
 
@@ -48,7 +48,7 @@ export function Dashboard() {
             return false;
           }
 
-          if (selectedDistrict !== "todos" && item.owner_district !== selectedDistrict) {
+          if (selectedDistrict !== "todos" && getDashboardDistrict(item) !== selectedDistrict) {
             return false;
           }
 
