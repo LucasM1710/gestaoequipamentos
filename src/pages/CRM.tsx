@@ -9,7 +9,7 @@ import { useCRM } from "@/hooks/useCRM";
 import type { CrmCard } from "@/types";
 
 export function CRM() {
-  const { role, profile } = useAuth();
+  const { role, profile, permissions } = useAuth();
   const { columns, interactions, attachments, emailLogs, equipamentos, users, isLoading, moveCard, addNote, openAttachment } = useCRM();
   const [selectedCard, setSelectedCard] = useState<CrmCard | null>(null);
   const [leaderFilter, setLeaderFilter] = useState("todos");
@@ -23,7 +23,7 @@ export function CRM() {
       cards: column.cards.filter((card) => {
         const owner = users.find((user) => user.id === card.owner_id);
         const matchesLeader =
-          role !== "admin" || leaderFilter === "todos" ? true : owner?.lider_id === leaderFilter;
+          role === "lider" || leaderFilter === "todos" ? true : owner?.lider_id === leaderFilter;
         const matchesOwner =
           ownerFilter.trim() === ""
             ? true
@@ -42,7 +42,9 @@ export function CRM() {
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-borderSoft bg-appBg px-4 py-3">
         <p className="text-sm text-textSecondary">
-          Arraste os cards entre as colunas. A movimentacao atualiza o CRM e registra a interacao automaticamente.
+          {permissions.canMoveCrmCards
+            ? "Arraste os cards entre as colunas. A movimentacao atualiza o CRM e registra a interacao automaticamente."
+            : "Visualizacao do registro de contato com interacoes e historico de e-mails enviados."}
         </p>
         <div className="flex flex-wrap items-center gap-3">
           <Input
@@ -53,7 +55,7 @@ export function CRM() {
             className="w-[220px]"
           />
           <Select
-            disabled={role !== "admin"}
+            disabled={role === "lider"}
             value={role === "lider" ? profile?.id ?? "todos" : leaderFilter}
             onChange={(event) => setLeaderFilter(event.target.value)}
             className="w-[220px]"
@@ -75,6 +77,7 @@ export function CRM() {
         columns={filteredColumns}
         users={users}
         equipamentos={equipamentos}
+        canEdit={permissions.canMoveCrmCards}
         onMove={async (cardId, coluna) => {
           try {
             await moveCard(cardId, coluna);
@@ -95,6 +98,7 @@ export function CRM() {
         interactions={interactions.filter((item) => item.card_id === selectedCard?.id)}
         attachments={attachments.filter((item) => item.card_id === selectedCard?.id)}
         emailLogs={emailLogs.filter((item) => item.owner_id === selectedCard?.owner_id)}
+        canEdit={permissions.canMoveCrmCards}
         onSaveNote={async (cardId, ownerId, note, files) => {
           try {
             await addNote(cardId, ownerId, note, files);

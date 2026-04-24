@@ -44,11 +44,11 @@ export function App() {
             <Route path="/emails" element={withSuspense(<Emails />)} />
             <Route path="/relatorios" element={withSuspense(<Relatorios />)} />
           </Route>
-          <Route element={<ProtectedRoute allowedRoles={["admin"]} />}>
+          <Route element={<ProtectedRoute allowedRoles={["admin", "gestor"]} />}>
             <Route path="/usuarios" element={withSuspense(<Usuarios />)} />
             <Route path="/logs" element={withSuspense(<Logs />)} />
           </Route>
-          <Route element={<ProtectedRoute allowedRoles={["admin", "lider"]} />}>
+          <Route element={<ProtectedRoute allowedRoles={["admin", "gestor", "lider"]} />}>
             <Route path="/crm" element={withSuspense(<CRM />)} />
           </Route>
           <Route path="*" element={<Navigate to="/login" replace />} />

@@ -32,10 +32,10 @@ const items: Array<{
     section: "operacao",
   },
   { label: "E-mails", href: "/emails", icon: Mail, roles: ["admin", "gestor", "lider"], section: "operacao" },
-  { label: "Registro de Contato", href: "/crm", icon: BarChart3, roles: ["admin", "lider"], section: "operacao" },
+  { label: "Registro de Contato", href: "/crm", icon: BarChart3, roles: ["admin", "gestor", "lider"], section: "operacao" },
   { label: "Relatorios", href: "/relatorios", icon: BarChart3, roles: ["admin", "gestor", "lider"], section: "operacao" },
-  { label: "Usuarios", href: "/usuarios", icon: Users, roles: ["admin"], section: "controle" },
-  { label: "Logs", href: "/logs", icon: ShieldCheck, roles: ["admin"], section: "controle" },
+  { label: "Usuarios", href: "/usuarios", icon: Users, roles: ["admin", "gestor"], section: "controle" },
+  { label: "Logs", href: "/logs", icon: ShieldCheck, roles: ["admin", "gestor"], section: "controle" },
 ];
 
 function canAccessItem(allowedRoles: UserRole[], currentRole: UserRole | null) {

@@ -10,12 +10,14 @@ interface KanbanCardProps {
   equipamentos: EquipamentoVisao[];
   onOpen: (card: CrmCard) => void;
   isOverlay?: boolean;
+  draggable?: boolean;
 }
 
-export function KanbanCard({ card, owner, lider, equipamentos, onOpen, isOverlay }: KanbanCardProps) {
+export function KanbanCard({ card, owner, lider, equipamentos, onOpen, isOverlay, draggable = true }: KanbanCardProps) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: card.id,
     data: { cardId: card.id },
+    disabled: !draggable,
   });
 
   const style =
@@ -27,7 +29,7 @@ export function KanbanCard({ card, owner, lider, equipamentos, onOpen, isOverlay
     <div
       ref={isOverlay ? undefined : setNodeRef}
       style={style}
-      {...(isOverlay ? {} : { ...listeners, ...attributes })}
+      {...(isOverlay || !draggable ? {} : { ...listeners, ...attributes })}
       className={cn(
         "rounded-xl border bg-white transition-all duration-150",
         isDragging && !isOverlay
@@ -35,7 +37,9 @@ export function KanbanCard({ card, owner, lider, equipamentos, onOpen, isOverlay
           : "border-marine/10 shadow-[0_2px_8px_rgba(0,45,98,0.06)]",
         isOverlay
           ? "rotate-[1.5deg] cursor-grabbing shadow-[0_24px_48px_rgba(0,45,98,0.18)] ring-2 ring-turquoise/30"
-          : "cursor-grab hover:shadow-[0_6px_20px_rgba(0,45,98,0.1)] active:cursor-grabbing",
+          : draggable
+            ? "cursor-grab hover:shadow-[0_6px_20px_rgba(0,45,98,0.1)] active:cursor-grabbing"
+            : "cursor-default hover:shadow-[0_6px_20px_rgba(0,45,98,0.1)]",
       )}
     >
       {/* Header */}

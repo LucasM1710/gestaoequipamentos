@@ -221,8 +221,8 @@ Deno.serve(async (request) => {
     }
 
     const { data: callerProfile } = await adminClient.from("users").select("id, role").eq("id", caller.id).single();
-    if (!callerProfile || callerProfile.role !== "admin") {
-      return jsonResponse({ error: "Apenas admin pode sincronizar usuarios." }, { status: 403 });
+    if (!callerProfile || !["admin", "gestor"].includes(callerProfile.role)) {
+      return jsonResponse({ error: "Apenas admin ou gestor podem sincronizar usuarios." }, { status: 403 });
     }
 
     const body = (await request.json()) as { rows?: unknown };

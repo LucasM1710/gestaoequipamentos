@@ -24,6 +24,7 @@ interface ModalCardProps {
   interactions: CrmInteraction[];
   attachments: CrmInteractionAttachment[];
   emailLogs: EmailLog[];
+  canEdit: boolean;
   onSaveNote: (cardId: string, ownerId: string, note: string, files: File[]) => Promise<void>;
   onOpenAttachment: (attachment: CrmInteractionAttachment) => Promise<void>;
   onClose: () => void;
@@ -39,6 +40,7 @@ export function ModalCard({
   interactions,
   attachments,
   emailLogs,
+  canEdit,
   onSaveNote,
   onOpenAttachment,
   onClose,
@@ -127,64 +129,66 @@ export function ModalCard({
           </Card>
 
           <div className="space-y-4">
-            <Card className="bg-[linear-gradient(165deg,rgba(5,195,221,0.08),rgba(255,255,255,0.96))]">
-              <div className="mb-3 flex items-center justify-between gap-3">
-                <CardTitle>Nova anotacao</CardTitle>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/png,image/jpeg,image/jpg,image/webp"
-                  multiple
-                  className="hidden"
-                  onChange={(event) => {
-                    const nextFiles = Array.from(event.target.files ?? []).filter((file) => file.type.startsWith("image/"));
-                    event.currentTarget.value = "";
-                    if (nextFiles.length === 0) {
-                      return;
-                    }
-                    setPendingFiles((current) => [...current, ...nextFiles]);
-                  }}
-                />
-                <Button variant="ghost" className="h-9 gap-2 px-3 text-xs" onClick={() => fileInputRef.current?.click()}>
-                  <ImagePlus className="h-4 w-4" />
-                  Anexar imagem
-                </Button>
-              </div>
-              <div className="space-y-3">
-                <Textarea
-                  value={note}
-                  onChange={(event) => setNote(event.target.value)}
-                  placeholder="Registrar contato, contexto ou proximo passo."
-                />
-
-                {pendingFiles.length > 0 ? (
-                  <div className="flex flex-wrap gap-2">
-                    {pendingFiles.map((file, index) => (
-                      <span
-                        key={`${file.name}-${index}`}
-                        className="inline-flex items-center gap-2 rounded-full border border-marine/12 bg-white px-3 py-1 text-xs font-medium text-textPrimary"
-                      >
-                        <Paperclip className="h-3.5 w-3.5 text-marine/60" />
-                        {file.name}
-                        <button
-                          type="button"
-                          className="text-textSecondary transition hover:text-veoliaRed"
-                          onClick={() => setPendingFiles((current) => current.filter((_, currentIndex) => currentIndex !== index))}
-                        >
-                          <X className="h-3.5 w-3.5" />
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                ) : null}
-
-                <div className="flex justify-end">
-                  <Button onClick={() => void handleSaveNote()} disabled={!note.trim() && pendingFiles.length === 0}>
-                    Salvar anotacao
+            {canEdit ? (
+              <Card className="bg-[linear-gradient(165deg,rgba(5,195,221,0.08),rgba(255,255,255,0.96))]">
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <CardTitle>Nova anotacao</CardTitle>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/png,image/jpeg,image/jpg,image/webp"
+                    multiple
+                    className="hidden"
+                    onChange={(event) => {
+                      const nextFiles = Array.from(event.target.files ?? []).filter((file) => file.type.startsWith("image/"));
+                      event.currentTarget.value = "";
+                      if (nextFiles.length === 0) {
+                        return;
+                      }
+                      setPendingFiles((current) => [...current, ...nextFiles]);
+                    }}
+                  />
+                  <Button variant="ghost" className="h-9 gap-2 px-3 text-xs" onClick={() => fileInputRef.current?.click()}>
+                    <ImagePlus className="h-4 w-4" />
+                    Anexar imagem
                   </Button>
                 </div>
-              </div>
-            </Card>
+                <div className="space-y-3">
+                  <Textarea
+                    value={note}
+                    onChange={(event) => setNote(event.target.value)}
+                    placeholder="Registrar contato, contexto ou proximo passo."
+                  />
+
+                  {pendingFiles.length > 0 ? (
+                    <div className="flex flex-wrap gap-2">
+                      {pendingFiles.map((file, index) => (
+                        <span
+                          key={`${file.name}-${index}`}
+                          className="inline-flex items-center gap-2 rounded-full border border-marine/12 bg-white px-3 py-1 text-xs font-medium text-textPrimary"
+                        >
+                          <Paperclip className="h-3.5 w-3.5 text-marine/60" />
+                          {file.name}
+                          <button
+                            type="button"
+                            className="text-textSecondary transition hover:text-veoliaRed"
+                            onClick={() => setPendingFiles((current) => current.filter((_, currentIndex) => currentIndex !== index))}
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  ) : null}
+
+                  <div className="flex justify-end">
+                    <Button onClick={() => void handleSaveNote()} disabled={!note.trim() && pendingFiles.length === 0}>
+                      Salvar anotacao
+                    </Button>
+                  </div>
+                </div>
+              </Card>
+            ) : null}
 
             <Card className="bg-[linear-gradient(165deg,rgba(0,45,98,0.05),rgba(255,255,255,0.96))]">
               <CardTitle className="mb-3">Interacoes</CardTitle>

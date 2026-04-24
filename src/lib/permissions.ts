@@ -2,13 +2,13 @@ import type { Permissoes, UserRole } from "@/types";
 
 export function getPermissions(role: UserRole | null): Permissoes {
   return {
-    canManageUsers: role === "admin",
+    canManageUsers: role === "admin" || role === "gestor",
     canManageEquipamentos: role === "admin",
     canViewDashboard: role === "admin" || role === "gestor" || role === "lider",
     canViewEmails: role === "admin" || role === "gestor" || role === "lider",
-    canViewCrm: role === "admin" || role === "lider",
-    canMoveCrmCards: role === "admin" || role === "lider",
-    canViewLogs: role === "admin",
+    canViewCrm: role === "admin" || role === "gestor" || role === "lider",
+    canMoveCrmCards: role === "admin",
+    canViewLogs: role === "admin" || role === "gestor",
     canViewRelatorios: role === "admin" || role === "gestor" || role === "lider",
     canRequestReview: role === "gestor",
   };

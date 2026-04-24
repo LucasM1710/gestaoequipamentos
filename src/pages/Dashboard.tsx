@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Card, CardTitle } from "@/components/ui/card";
 import { Select } from "@/components/ui/select";
 import { CalibracaoChart } from "@/components/dashboard/CalibracaoChart";
@@ -23,13 +23,7 @@ export function Dashboard() {
     isLoading,
     updateReviewRequestStatus,
   } = useDashboardData(role, profile?.id);
-  const [selectedDistrict, setSelectedDistrict] = useState(role === "lider" ? profile?.district ?? "todos" : "todos");
-
-  useEffect(() => {
-    if (role === "lider" && profile?.district) {
-      setSelectedDistrict(profile.district);
-    }
-  }, [profile?.district, role]);
+  const [selectedDistrict, setSelectedDistrict] = useState("todos");
 
   const metrics = useMemo(
     () =>
@@ -76,7 +70,6 @@ export function Dashboard() {
           <p className="mt-0.5 text-sm text-textSecondary">KPIs de calibracao, CRM e distribuicao por distrito.</p>
         </div>
         <Select
-          disabled={role === "lider"}
           value={selectedDistrict}
           onChange={(event) => setSelectedDistrict(event.target.value)}
           className="w-[220px]"

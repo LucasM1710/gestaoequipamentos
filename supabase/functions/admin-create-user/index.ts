@@ -39,8 +39,8 @@ Deno.serve(async (request) => {
       .eq("id", caller.id)
       .single();
 
-    if (!callerProfile || callerProfile.role !== "admin") {
-      return jsonResponse({ error: "Apenas admin pode provisionar usuarios." }, { status: 403 });
+    if (!callerProfile || !["admin", "gestor"].includes(callerProfile.role)) {
+      return jsonResponse({ error: "Apenas admin ou gestor podem provisionar usuarios." }, { status: 403 });
     }
 
     const body = (await request.json()) as {

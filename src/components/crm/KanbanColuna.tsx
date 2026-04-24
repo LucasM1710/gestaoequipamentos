@@ -8,6 +8,7 @@ interface KanbanColunaProps {
   label: string;
   cards: CrmCard[];
   onOpen: (card: CrmCard) => void;
+  canEdit: boolean;
   getOwnerData: (card: CrmCard) => {
     owner?: import("@/types").AppUser;
     lider?: import("@/types").AppUser;
@@ -24,7 +25,7 @@ const toneStyles: Record<CrmColuna, { dot: string; label: string; isOverBg: stri
   perdido:          { dot: "bg-[#8BADCd]",            label: "text-[#5A7A9A]",         isOverBg: "bg-[#8BADCd]/8 border-[#8BADCd]/40" },
 };
 
-export function KanbanColuna({ coluna, label, cards, onOpen, getOwnerData }: KanbanColunaProps) {
+export function KanbanColuna({ coluna, label, cards, onOpen, canEdit, getOwnerData }: KanbanColunaProps) {
   const { setNodeRef, isOver } = useDroppable({ id: coluna });
   const tone = toneStyles[coluna];
 
@@ -73,6 +74,7 @@ export function KanbanColuna({ coluna, label, cards, onOpen, getOwnerData }: Kan
                 lider={data.lider}
                 equipamentos={data.equipamentos}
                 onOpen={onOpen}
+                draggable={canEdit}
               />
             );
           })
