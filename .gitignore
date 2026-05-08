@@ -4,6 +4,7 @@ dist
 .env.local
 .vercel
 .claude/
+er-analitica.txt
 .DS_Store
 coverage
 supabase/.temp
