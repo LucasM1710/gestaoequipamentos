@@ -13,10 +13,16 @@
   - `RESEND_API_KEY`
   - `RESEND_FROM_EMAIL`
   - `APP_URL`
+  - `RESET_EQUIPAMENTOS_PASSWORD`
 - Publicar Edge Functions:
   - `admin-create-user`
+  - `dashboard-data`
+  - `reset-equipamentos`
+  - `resend-webhook`
   - `run-calibration-notifications`
   - `send-leader-weekly-summary`
+  - `sync-equipamentos-sheet`
+  - `sync-users-sheet`
 
 ## Agendamentos
 - Validar extensoes `pg_cron` e `pg_net`.

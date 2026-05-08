@@ -1,8 +1,6 @@
 import { getAdminClient, getUserClient } from "../_shared/client.ts";
 import { corsHeaders, jsonResponse } from "../_shared/cors.ts";
 
-const FALLBACK_RESET_PASSWORD = "29cjsh3jsk2";
-
 Deno.serve(async (request) => {
   if (request.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -32,7 +30,11 @@ Deno.serve(async (request) => {
     }
 
     const body = (await request.json()) as { password?: string };
-    const expectedPassword = Deno.env.get("RESET_EQUIPAMENTOS_PASSWORD") ?? FALLBACK_RESET_PASSWORD;
+    const expectedPassword = Deno.env.get("RESET_EQUIPAMENTOS_PASSWORD");
+
+    if (!expectedPassword) {
+      return jsonResponse({ error: "Senha de reset nao configurada." }, { status: 500 });
+    }
 
     if (!body.password || body.password !== expectedPassword) {
       return jsonResponse({ error: "Senha invalida para reset de equipamentos." }, { status: 403 });
