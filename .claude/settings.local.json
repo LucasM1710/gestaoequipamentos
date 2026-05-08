@@ -1,9 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(npm run:*)",
-      "Bash(git -C /c/Users/Bruno/Desktop/crm-er log --oneline)",
-      "Bash(xargs wc:*)"
-    ]
-  }
-}

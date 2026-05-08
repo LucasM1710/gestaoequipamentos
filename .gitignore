@@ -3,6 +3,7 @@ dist
 .env
 .env.local
 .vercel
+.claude/
 .DS_Store
 coverage
 supabase/.temp
