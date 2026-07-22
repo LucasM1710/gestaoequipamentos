@@ -10,6 +10,7 @@
 - Equipamentos usam `equipamentos_visao` para status calculado em tempo real.
 - CRM agrupa owners por card unico, com historico em `crm_interactions`.
 - Rotinas automaticas usam `pg_cron` -> `pg_net` -> Edge Functions.
+- Equipamentos sao vinculados ao ERPNext (Frappe) via `erpnext_equipment_id` (preenchido uma vez por `bootstrap-erpnext-link`); a Edge Function `sync-os-erpnext` roda a cada 30 min (pull incremental por `modified`, estado em `erpnext_sync_state`) e atualiza `ultima_calibracao`, `proxima_calibracao` e `certificado` a partir das Ordens de Servico Interna/Externa finalizadas no ERPNext.
 
 ## Decisoes
 - `gestor` de escalonamento e definido por `district`.

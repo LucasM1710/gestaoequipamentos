@@ -60,6 +60,8 @@ export interface Equipamento {
   ultima_calibracao: string | null;
   proxima_calibracao: string | null;
   certificado: string | null;
+  erpnext_equipment_id: string | null;
+  erpnext_anexo_certificado: string | null;
   district: string | null;
   region_state: string | null;
   city: string | null;

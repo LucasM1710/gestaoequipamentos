@@ -97,6 +97,8 @@ function buildLocalEquipamento(
     ultima_calibracao: toNullableDate(values.ultima_calibracao),
     proxima_calibracao: proximaCalibracao,
     certificado: values.certificado || null,
+    erpnext_equipment_id: current?.erpnext_equipment_id ?? null,
+    erpnext_anexo_certificado: current?.erpnext_anexo_certificado ?? null,
     district: toNullableText(values.district) ?? owner?.district ?? null,
     region_state: toNullableText(values.region_state),
     city: toNullableText(values.city),
