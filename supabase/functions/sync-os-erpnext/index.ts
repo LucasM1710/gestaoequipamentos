@@ -19,6 +19,7 @@ interface SyncState {
 }
 
 const RUNNING_LOCK_MINUTES = 20;
+const FIRST_RUN_FLOOR_DATE = "2026-01-01";
 const OS_FIELDS = ["informe_numero_serie", "name", "data_cal", "data_cal_recomendada", "anexo_certificado"];
 const OR_FILTERS: ErpnextFilter[] = [
   ["cal_rbc", "=", 1],
@@ -57,7 +58,11 @@ Deno.serve(async (request) => {
       .update({ last_run_status: "running", last_run_started_at: runStartedAt.toISOString() })
       .eq("id", true);
 
-    const deltaFilter: ErpnextFilter[] = state.last_synced_at ? [["modified", ">", state.last_synced_at]] : [];
+    // Sem sincronizacao anterior, limita a carga inicial a partir deste ano (em vez de todo o
+    // historico do ERPNext) para nao estourar os limites de recursos da Edge Function.
+    const deltaFilter: ErpnextFilter[] = state.last_synced_at
+      ? [["modified", ">", state.last_synced_at]]
+      : [["data_cal", ">=", FIRST_RUN_FLOOR_DATE]];
 
     const filtersInterna: ErpnextFilter[] = [
       ["status_conserto", "=", "Finalizado"],
