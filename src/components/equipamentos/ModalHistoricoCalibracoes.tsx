@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardTitle } from "@/components/ui/card";
 import { Dialog } from "@/components/ui/dialog";
 import { Table, TBody, TD, TH, THead } from "@/components/ui/table";
-import { formatDate } from "@/lib/utils";
+import { formatCertificado, formatDate } from "@/lib/utils";
 import type { EquipamentoDocumento, EquipamentoVisao, ErpnextOrdemServico } from "@/types";
 
 interface ModalHistoricoCalibracoesProps {
@@ -16,8 +16,15 @@ interface ModalHistoricoCalibracoesProps {
   onUploadDocument: (file: File) => Promise<void>;
   onDeleteDocument: (documento: EquipamentoDocumento) => Promise<void>;
   onOpenDocument: (documento: EquipamentoDocumento) => Promise<void>;
-  onOpenCertificadoErpnext: (osName: string) => Promise<void>;
+  onOpenCertificadoErpnext: (equipamentoId: string, osName?: string) => Promise<void>;
   onClose: () => void;
+}
+
+// Campo certificado com um numero de OS ("44104" ou "OS-44104"), para equipamentos que ainda
+// nao tem OS sincronizada mas cujo certificado pode ser buscado no ERPNext pelo numero.
+function certificadoPareceOs(certificado: string | null | undefined): boolean {
+  const c = (certificado ?? "").trim();
+  return /^OS-\d+$/i.test(c) || /^\d{3,}$/.test(c);
 }
 
 function formatBytes(bytes: number) {
@@ -41,14 +48,18 @@ export function ModalHistoricoCalibracoes({
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [carregandoOs, setCarregandoOs] = useState<string | null>(null);
 
-  async function handleAbrirCertificado(osName: string) {
-    setCarregandoOs(osName);
+  async function handleAbrirCertificado(chave: string, osName?: string) {
+    if (!equipamento) return;
+    setCarregandoOs(chave);
     try {
-      await onOpenCertificadoErpnext(osName);
+      await onOpenCertificadoErpnext(equipamento.id, osName);
     } finally {
       setCarregandoOs(null);
     }
   }
+
+  const mostrarCertificadoAvulso =
+    ordensErpnext.length === 0 && certificadoPareceOs(equipamento?.certificado);
 
   return (
     <Dialog
@@ -72,10 +83,29 @@ export function ModalHistoricoCalibracoes({
                 </tr>
               </THead>
               <TBody>
-                {ordensErpnext.length === 0 ? (
+                {ordensErpnext.length === 0 && !mostrarCertificadoAvulso ? (
                   <tr>
                     <TD colSpan={4} className="py-8 text-center text-textSecondary">
                       Nenhuma ordem de servico sincronizada do ERPNext para este equipamento.
+                    </TD>
+                  </tr>
+                ) : null}
+                {mostrarCertificadoAvulso && equipamento ? (
+                  <tr className="transition-colors hover:bg-appBg/50">
+                    <TD>{formatDate(equipamento.ultima_calibracao)}</TD>
+                    <TD>{formatDate(equipamento.proxima_calibracao)}</TD>
+                    <TD className="whitespace-nowrap font-medium">{formatCertificado(equipamento.certificado)}</TD>
+                    <TD>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        className="h-8 gap-1.5 px-3 text-[11px]"
+                        disabled={carregandoOs === "__avulso__"}
+                        onClick={() => void handleAbrirCertificado("__avulso__")}
+                      >
+                        <Download className="h-4 w-4" />
+                        {carregandoOs === "__avulso__" ? "Abrindo..." : "Ver certificado"}
+                      </Button>
                     </TD>
                   </tr>
                 ) : null}
@@ -85,20 +115,16 @@ export function ModalHistoricoCalibracoes({
                     <TD>{formatDate(ordem.data_cal_recomendada)}</TD>
                     <TD className="whitespace-nowrap font-medium">{ordem.os_name}</TD>
                     <TD>
-                      {ordem.anexo_certificado ? (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          className="h-8 gap-1.5 px-3 text-[11px]"
-                          disabled={carregandoOs === ordem.os_name}
-                          onClick={() => void handleAbrirCertificado(ordem.os_name)}
-                        >
-                          <Download className="h-4 w-4" />
-                          {carregandoOs === ordem.os_name ? "Abrindo..." : "Ver certificado"}
-                        </Button>
-                      ) : (
-                        <span className="text-xs text-textSecondary">Sem anexo</span>
-                      )}
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        className="h-8 gap-1.5 px-3 text-[11px]"
+                        disabled={carregandoOs === ordem.os_name}
+                        onClick={() => void handleAbrirCertificado(ordem.os_name, ordem.os_name)}
+                      >
+                        <Download className="h-4 w-4" />
+                        {carregandoOs === ordem.os_name ? "Abrindo..." : "Ver certificado"}
+                      </Button>
                     </TD>
                   </tr>
                 ))}

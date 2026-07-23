@@ -249,9 +249,9 @@ export function Equipamentos() {
         ordensErpnext={historyOrdensErpnext}
         documentos={historyDocuments}
         canManageDocuments={role === "admin"}
-        onOpenCertificadoErpnext={async (osName) => {
+        onOpenCertificadoErpnext={async (equipamentoId, osName) => {
           try {
-            await abrirCertificadoErpnext(osName);
+            await abrirCertificadoErpnext(equipamentoId, osName);
           } catch (error) {
             toast.error(error instanceof Error ? error.message : "Falha ao abrir o certificado.");
           }

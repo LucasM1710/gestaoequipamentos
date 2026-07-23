@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardTitle } from "@/components/ui/card";
 import { Select } from "@/components/ui/select";
 import { Table, TBody, TD, TH, THead } from "@/components/ui/table";
-import { formatDate } from "@/lib/utils";
+import { formatCertificado, formatDate } from "@/lib/utils";
 import type { EquipamentoVisao, UserRole } from "@/types";
 import { BadgeStatus } from "./BadgeStatus";
 
@@ -242,7 +242,7 @@ export function TabelaEquipamentos({
                     className="h-8 rounded-xl px-2.5 py-0 text-[11px] font-semibold"
                     onClick={() => onManageDocuments(item)}
                   >
-                    {item.certificado ? `Cert. ${item.certificado}` : "Anexar revisao"}
+                    {item.certificado ? `Cert. ${formatCertificado(item.certificado)}` : "Anexar revisao"}
                   </Button>
                 </TD>
                 <TD className="whitespace-nowrap px-3 py-2 align-middle">

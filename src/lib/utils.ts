@@ -44,6 +44,17 @@ export function formatDateTime(value: string | null | undefined) {
   }).format(new Date(value));
 }
 
+// Padroniza a exibicao do certificado como "OS-XXXXX". O valor guardado pode vir so com
+// digitos (importado da planilha, ex. "47624") ou ja no formato do ERPNext ("OS-60716").
+// Valores que nao sao numero de OS (ex. "CER-001") sao exibidos como estao.
+export function formatCertificado(value: string | null | undefined) {
+  const c = (value ?? "").trim();
+  if (!c) return "";
+  if (/^OS-\d+$/i.test(c)) return c.toUpperCase();
+  if (/^\d{3,}$/.test(c)) return `OS-${c}`;
+  return c;
+}
+
 export function toTitleCase(value: string) {
   return value
     .split("_")

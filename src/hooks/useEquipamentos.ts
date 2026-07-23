@@ -425,7 +425,7 @@ export function useEquipamentos() {
     return (data as ErpnextOrdemServico[] | null) ?? [];
   }
 
-  async function abrirCertificadoErpnext(osName: string) {
+  async function abrirCertificadoErpnext(equipamentoId: string, osName?: string) {
     if (!isSupabaseConfigured || !supabase) {
       throw new Error("Supabase nao configurado.");
     }
@@ -444,7 +444,7 @@ export function useEquipamentos() {
         Authorization: `Bearer ${session.access_token}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ osName }),
+      body: JSON.stringify({ equipamentoId, osName }),
     });
 
     if (!response.ok) {
