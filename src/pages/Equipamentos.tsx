@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { useAuth } from "@/hooks/useAuth";
 import { useEquipamentos } from "@/hooks/useEquipamentos";
-import type { Calibracao, EquipamentoDocumento, EquipamentoVisao } from "@/types";
+import type { Calibracao, EquipamentoDocumento, EquipamentoVisao, ErpnextOrdemServico } from "@/types";
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
 
@@ -27,6 +27,8 @@ export function Equipamentos() {
     deactivateEquipamento,
     requestReview,
     getHistoricoCalibracoes,
+    getOrdensServicoErpnext,
+    abrirCertificadoErpnext,
     getDocumentosEquipamento,
     uploadDocumentoEquipamento,
     deleteDocumentoEquipamento,
@@ -40,6 +42,7 @@ export function Equipamentos() {
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyEquipamento, setHistoryEquipamento] = useState<EquipamentoVisao | null>(null);
   const [historyItems, setHistoryItems] = useState<Calibracao[]>([]);
+  const [historyOrdensErpnext, setHistoryOrdensErpnext] = useState<ErpnextOrdemServico[]>([]);
   const [historyDocuments, setHistoryDocuments] = useState<EquipamentoDocumento[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
@@ -141,12 +144,14 @@ export function Equipamentos() {
         }}
       onViewHistory={async (item) => {
           try {
-            const [historico, documentos] = await Promise.all([
+            const [historico, ordens, documentos] = await Promise.all([
               getHistoricoCalibracoes(item.id),
+              getOrdensServicoErpnext(item.id),
               getDocumentosEquipamento(item.id),
             ]);
             setHistoryEquipamento(item);
             setHistoryItems(historico);
+            setHistoryOrdensErpnext(ordens);
             setHistoryDocuments(documentos);
             setHistoryOpen(true);
           } catch (error) {
@@ -155,12 +160,14 @@ export function Equipamentos() {
         }}
         onManageDocuments={async (item) => {
           try {
-            const [historico, documentos] = await Promise.all([
+            const [historico, ordens, documentos] = await Promise.all([
               getHistoricoCalibracoes(item.id),
+              getOrdensServicoErpnext(item.id),
               getDocumentosEquipamento(item.id),
             ]);
             setHistoryEquipamento(item);
             setHistoryItems(historico);
+            setHistoryOrdensErpnext(ordens);
             setHistoryDocuments(documentos);
             setHistoryOpen(true);
           } catch (error) {
@@ -246,8 +253,16 @@ export function Equipamentos() {
         open={historyOpen}
         equipamento={historyEquipamento}
         historico={historyItems}
+        ordensErpnext={historyOrdensErpnext}
         documentos={historyDocuments}
         canManageDocuments={role === "admin"}
+        onOpenCertificadoErpnext={async (osName) => {
+          try {
+            await abrirCertificadoErpnext(osName);
+          } catch (error) {
+            toast.error(error instanceof Error ? error.message : "Falha ao abrir o certificado.");
+          }
+        }}
         onUploadDocument={async (file) => {
           if (!historyEquipamento) {
             return;

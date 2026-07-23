@@ -90,6 +90,14 @@ Deno.serve(async (request) => {
     // 2. Pergunta ao ERPNext apenas as OS DESSES equipamentos, em blocos e em sequencia
     //    (nunca em paralelo, para nao ocupar varios workers do Frappe ao mesmo tempo).
     const maisRecentePorEquipamento = new Map<string, OrdemServico>();
+    const historico: {
+      erpnext_equipment_id: string;
+      os_name: string;
+      doctype: string;
+      data_cal: string | null;
+      data_cal_recomendada: string | null;
+      anexo_certificado: string | null;
+    }[] = [];
 
     for (const bloco of chunkArray(equipmentIds, EQUIPAMENTOS_POR_CONSULTA)) {
       const filtrosComuns: ErpnextFilter[] = [
@@ -113,12 +121,28 @@ Deno.serve(async (request) => {
         orderBy: "data_cal desc",
       });
 
-      // 3. Junta Interna + Externa e fica com a calibracao de data_cal mais recente.
-      for (const os of [...interna, ...externa]) {
-        if (!os.informe_numero_serie) continue;
-        const atual = maisRecentePorEquipamento.get(os.informe_numero_serie);
-        if (!atual || (os.data_cal ?? "") > (atual.data_cal ?? "")) {
-          maisRecentePorEquipamento.set(os.informe_numero_serie, os);
+      // 3. Junta Interna + Externa: guarda TODAS no historico e separa a de data_cal
+      //    mais recente para atualizar os campos do equipamento.
+      for (const [doctype, lista] of [
+        ["Ordem Servico Interna", interna],
+        ["Ordem Servico Externa", externa],
+      ] as const) {
+        for (const os of lista) {
+          if (!os.informe_numero_serie) continue;
+
+          historico.push({
+            erpnext_equipment_id: os.informe_numero_serie,
+            os_name: os.name,
+            doctype,
+            data_cal: os.data_cal,
+            data_cal_recomendada: os.data_cal_recomendada,
+            anexo_certificado: os.anexo_certificado,
+          });
+
+          const atual = maisRecentePorEquipamento.get(os.informe_numero_serie);
+          if (!atual || (os.data_cal ?? "") > (atual.data_cal ?? "")) {
+            maisRecentePorEquipamento.set(os.informe_numero_serie, os);
+          }
         }
       }
     }
@@ -148,6 +172,20 @@ Deno.serve(async (request) => {
       semVinculo = resultado?.sem_vinculo ?? [];
     }
 
+    // 5. Grava o historico completo de OS (tabela separada, sem efeito no status calculado).
+    let historicoGravado = 0;
+    for (const lote of chunkArray(historico, 500)) {
+      const { data: total, error: historicoError } = await adminClient.rpc("aplicar_os_erpnext", {
+        p_registros: lote,
+      });
+
+      if (historicoError) {
+        throw new Error(`Falha ao gravar historico de OS: ${historicoError.message}`);
+      }
+
+      historicoGravado += (total as number) ?? 0;
+    }
+
     if (semVinculo.length > 0) {
       await adminClient.rpc("registrar_log", {
         p_user_id: null,
@@ -173,6 +211,7 @@ Deno.serve(async (request) => {
       equipamentosConsultados: equipmentIds.length,
       osEncontradas: registros.length,
       atualizados,
+      historicoGravado,
       semVinculo: semVinculo.length,
       duracaoSegundos: Math.round((Date.now() - runStartedAt.getTime()) / 1000),
     });

@@ -39,6 +39,18 @@ export interface Calibracao {
   created_at: string;
 }
 
+export interface ErpnextOrdemServico {
+  id: string;
+  equipamento_id: string;
+  erpnext_equipment_id: string;
+  os_name: string;
+  doctype: string;
+  data_cal: string | null;
+  data_cal_recomendada: string | null;
+  anexo_certificado: string | null;
+  synced_at: string;
+}
+
 export interface EquipamentoDocumento {
   id: string;
   equipamento_id: string;

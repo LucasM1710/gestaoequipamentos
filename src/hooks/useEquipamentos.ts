@@ -6,7 +6,14 @@ import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 import { getDiasParaVencer, getEquipamentoStatus } from "@/lib/statusUtils";
 import { invokeEdgeFunction } from "@/services/emailService";
 import { registerLog } from "@/services/logService";
-import type { AppUser, Calibracao, EquipamentoDocumento, EquipamentoVisao, EquipamentosFilters } from "@/types";
+import type {
+  AppUser,
+  Calibracao,
+  EquipamentoDocumento,
+  EquipamentoVisao,
+  EquipamentosFilters,
+  ErpnextOrdemServico,
+} from "@/types";
 
 const defaultFilters: EquipamentosFilters = {
   search: "",
@@ -400,6 +407,57 @@ export function useEquipamentos() {
     return (data as Calibracao[] | null) ?? [];
   }
 
+  async function getOrdensServicoErpnext(equipamentoId: string) {
+    if (!isSupabaseConfigured || !supabase) {
+      return [] as ErpnextOrdemServico[];
+    }
+
+    const { data, error } = await supabase
+      .from("erpnext_ordens_servico")
+      .select("*")
+      .eq("equipamento_id", equipamentoId)
+      .order("data_cal", { ascending: false });
+
+    if (error) {
+      throw error;
+    }
+
+    return (data as ErpnextOrdemServico[] | null) ?? [];
+  }
+
+  async function abrirCertificadoErpnext(osName: string) {
+    if (!isSupabaseConfigured || !supabase) {
+      throw new Error("Supabase nao configurado.");
+    }
+
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    if (!session) {
+      throw new Error("Sessao expirada. Entre novamente.");
+    }
+
+    const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/erpnext-certificado`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${session.access_token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ osName }),
+    });
+
+    if (!response.ok) {
+      const detalhe = await response.json().catch(() => ({}));
+      throw new Error(detalhe?.error ?? "Nao foi possivel abrir o certificado.");
+    }
+
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    window.open(url, "_blank", "noopener,noreferrer");
+    setTimeout(() => URL.revokeObjectURL(url), 60_000);
+  }
+
   async function getDocumentosEquipamento(equipamentoId: string) {
     if (!isSupabaseConfigured || !supabase) {
       return (documentosByEquipamentoId.get(equipamentoId) ?? []).sort(
@@ -624,6 +682,8 @@ export function useEquipamentos() {
     deactivateEquipamento,
     requestReview,
     getHistoricoCalibracoes,
+    getOrdensServicoErpnext,
+    abrirCertificadoErpnext,
     getDocumentosEquipamento,
     uploadDocumentoEquipamento,
     deleteDocumentoEquipamento,

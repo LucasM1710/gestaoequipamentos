@@ -1,21 +1,23 @@
-import { useRef } from "react";
-import { ExternalLink, FileText, Trash2, Upload } from "lucide-react";
+import { useRef, useState } from "react";
+import { Download, ExternalLink, FileText, Trash2, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardTitle } from "@/components/ui/card";
 import { Dialog } from "@/components/ui/dialog";
 import { Table, TBody, TD, TH, THead } from "@/components/ui/table";
 import { formatDate } from "@/lib/utils";
-import type { Calibracao, EquipamentoDocumento, EquipamentoVisao } from "@/types";
+import type { Calibracao, EquipamentoDocumento, EquipamentoVisao, ErpnextOrdemServico } from "@/types";
 
 interface ModalHistoricoCalibracoesProps {
   open: boolean;
   equipamento?: EquipamentoVisao | null;
   historico: Calibracao[];
+  ordensErpnext: ErpnextOrdemServico[];
   documentos: EquipamentoDocumento[];
   canManageDocuments: boolean;
   onUploadDocument: (file: File) => Promise<void>;
   onDeleteDocument: (documento: EquipamentoDocumento) => Promise<void>;
   onOpenDocument: (documento: EquipamentoDocumento) => Promise<void>;
+  onOpenCertificadoErpnext: (osName: string) => Promise<void>;
   onClose: () => void;
 }
 
@@ -29,14 +31,26 @@ export function ModalHistoricoCalibracoes({
   open,
   equipamento,
   historico,
+  ordensErpnext,
   documentos,
   canManageDocuments,
   onUploadDocument,
   onDeleteDocument,
   onOpenDocument,
+  onOpenCertificadoErpnext,
   onClose,
 }: ModalHistoricoCalibracoesProps) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [carregandoOs, setCarregandoOs] = useState<string | null>(null);
+
+  async function handleAbrirCertificado(osName: string) {
+    setCarregandoOs(osName);
+    try {
+      await onOpenCertificadoErpnext(osName);
+    } finally {
+      setCarregandoOs(null);
+    }
+  }
 
   return (
     <Dialog
@@ -48,34 +62,79 @@ export function ModalHistoricoCalibracoes({
     >
       <div className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
         <Card className="bg-[linear-gradient(170deg,rgba(0,45,98,0.05),rgba(255,255,255,0.96))]">
-          <CardTitle className="mb-4">Historico de calibracoes</CardTitle>
+          <CardTitle className="mb-4">Historico de calibracoes (ERPNext)</CardTitle>
           <div className="overflow-x-auto">
             <Table>
               <THead>
                 <tr>
                   <TH>Data de calibracao</TH>
-                  <TH>Status</TH>
-                  <TH>Criado em</TH>
+                  <TH>Proxima</TH>
+                  <TH>OS</TH>
+                  <TH>Certificado</TH>
                 </tr>
               </THead>
               <TBody>
-                {historico.length === 0 ? (
+                {ordensErpnext.length === 0 ? (
                   <tr>
-                    <TD colSpan={3} className="py-8 text-center text-textSecondary">
-                      Nenhum registro de calibracao para este equipamento.
+                    <TD colSpan={4} className="py-8 text-center text-textSecondary">
+                      Nenhuma ordem de servico sincronizada do ERPNext para este equipamento.
                     </TD>
                   </tr>
                 ) : null}
-                {historico.map((item) => (
-                  <tr key={item.id} className="transition-colors hover:bg-appBg/50">
-                    <TD>{formatDate(item.data_calibracao)}</TD>
-                    <TD>{item.realizado ? "Realizado" : "Agendado"}</TD>
-                    <TD>{formatDate(item.created_at)}</TD>
+                {ordensErpnext.map((ordem) => (
+                  <tr key={ordem.id} className="transition-colors hover:bg-appBg/50">
+                    <TD>{formatDate(ordem.data_cal)}</TD>
+                    <TD>{formatDate(ordem.data_cal_recomendada)}</TD>
+                    <TD className="whitespace-nowrap font-medium">{ordem.os_name}</TD>
+                    <TD>
+                      {ordem.anexo_certificado ? (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          className="h-8 gap-1.5 px-3 text-[11px]"
+                          disabled={carregandoOs === ordem.os_name}
+                          onClick={() => void handleAbrirCertificado(ordem.os_name)}
+                        >
+                          <Download className="h-4 w-4" />
+                          {carregandoOs === ordem.os_name ? "Abrindo..." : "Ver certificado"}
+                        </Button>
+                      ) : (
+                        <span className="text-xs text-textSecondary">Sem anexo</span>
+                      )}
+                    </TD>
                   </tr>
                 ))}
               </TBody>
             </Table>
           </div>
+
+          {historico.length > 0 ? (
+            <div className="mt-5">
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-textSecondary">
+                Registros anteriores (planilha)
+              </p>
+              <div className="overflow-x-auto">
+                <Table>
+                  <THead>
+                    <tr>
+                      <TH>Data de calibracao</TH>
+                      <TH>Status</TH>
+                      <TH>Criado em</TH>
+                    </tr>
+                  </THead>
+                  <TBody>
+                    {historico.map((item) => (
+                      <tr key={item.id} className="transition-colors hover:bg-appBg/50">
+                        <TD>{formatDate(item.data_calibracao)}</TD>
+                        <TD>{item.realizado ? "Realizado" : "Agendado"}</TD>
+                        <TD>{formatDate(item.created_at)}</TD>
+                      </tr>
+                    ))}
+                  </TBody>
+                </Table>
+              </div>
+            </div>
+          ) : null}
         </Card>
 
         <Card className="bg-[linear-gradient(170deg,rgba(5,195,221,0.06),rgba(255,255,255,0.98))]">
