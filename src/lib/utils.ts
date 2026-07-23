@@ -5,12 +5,18 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+// Datas sem hora ("2026-07-20") sao interpretadas pelo JS como meia-noite UTC, o que no
+// fuso do Brasil (UTC-3) exibe o dia anterior. Forcamos a leitura como data local.
+function parseDateValue(value: string) {
+  return /^\d{4}-\d{2}-\d{2}$/.test(value) ? new Date(`${value}T00:00:00`) : new Date(value);
+}
+
 export function formatDate(value: string | null | undefined) {
   if (!value) {
     return "-";
   }
 
-  return new Intl.DateTimeFormat("pt-BR").format(new Date(value));
+  return new Intl.DateTimeFormat("pt-BR").format(parseDateValue(value));
 }
 
 export function formatShortDate(value: string | null | undefined) {
@@ -21,7 +27,7 @@ export function formatShortDate(value: string | null | undefined) {
   return new Intl.DateTimeFormat("pt-BR", {
     day: "2-digit",
     month: "2-digit",
-  }).format(new Date(value));
+  }).format(parseDateValue(value));
 }
 
 export function formatDateTime(value: string | null | undefined) {

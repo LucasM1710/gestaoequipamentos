@@ -1,6 +1,6 @@
 import { getAdminClient } from "../_shared/client.ts";
 import { corsHeaders, jsonResponse } from "../_shared/cors.ts";
-import { fetchErpnextResource, type ErpnextFilter } from "../_shared/erpnext.ts";
+import { chunkArray, fetchErpnextResource, type ErpnextFilter } from "../_shared/erpnext.ts";
 
 interface OrdemServico {
   informe_numero_serie: string | null;
@@ -19,7 +19,15 @@ interface SyncState {
 }
 
 const RUNNING_LOCK_MINUTES = 20;
-const FIRST_RUN_FLOOR_DATE = "2026-01-01";
+
+// So interessam calibracoes recentes: queremos a MAIS RECENTE de cada equipamento, entao
+// nao ha motivo para varrer o historico inteiro do ERPNext.
+const DATA_CAL_FLOOR = "2026-01-01";
+
+// Equipamentos por consulta ao ERPNext. Mantem a URL num tamanho seguro e o volume
+// de cada resposta pequeno.
+const EQUIPAMENTOS_POR_CONSULTA = 50;
+
 const OS_FIELDS = ["informe_numero_serie", "name", "data_cal", "data_cal_recomendada", "anexo_certificado"];
 const OR_FILTERS: ErpnextFilter[] = [
   ["cal_rbc", "=", 1],
@@ -58,78 +66,96 @@ Deno.serve(async (request) => {
       .update({ last_run_status: "running", last_run_started_at: runStartedAt.toISOString() })
       .eq("id", true);
 
-    // Sem sincronizacao anterior, limita a carga inicial a partir deste ano (em vez de todo o
-    // historico do ERPNext) para nao estourar os limites de recursos da Edge Function.
-    const deltaFilter: ErpnextFilter[] = state.last_synced_at
-      ? [["modified", ">", state.last_synced_at]]
-      : [["data_cal", ">=", FIRST_RUN_FLOOR_DATE]];
+    // 1. Só nos importam os equipamentos que ja tem vinculo com o ERPNext.
+    const { data: vinculados, error: vinculadosError } = await adminClient
+      .from("equipamentos")
+      .select("erpnext_equipment_id")
+      .not("erpnext_equipment_id", "is", null)
+      .returns<{ erpnext_equipment_id: string }[]>();
 
-    const filtersInterna: ErpnextFilter[] = [
-      ["status_conserto", "=", "Finalizado"],
-      ["repair_status", "in", ["Liberado", "Liberado com Restrição"]],
-      ["data_cal_recomendada", "is", "set"],
-      ...deltaFilter,
-    ];
+    if (vinculadosError) {
+      throw new Error(`Falha ao carregar equipamentos vinculados: ${vinculadosError.message}`);
+    }
 
-    const filtersExterna: ErpnextFilter[] = [
-      ["repair_status", "in", ["Liberado", "Liberado com Restrição"]],
-      ["data_cal_recomendada", "is", "set"],
-      ...deltaFilter,
-    ];
+    const equipmentIds = (vinculados ?? []).map((row) => row.erpnext_equipment_id);
 
-    const [interna, externa] = await Promise.all([
-      fetchErpnextResource<OrdemServico>("Ordem Servico Interna", {
-        filters: filtersInterna,
+    if (equipmentIds.length === 0) {
+      await adminClient
+        .from("erpnext_sync_state")
+        .update({ last_synced_at: runStartedAt.toISOString(), last_run_status: "success", last_error: null })
+        .eq("id", true);
+      return jsonResponse({ success: true, equipamentosConsultados: 0, atualizados: 0, semVinculo: 0 });
+    }
+
+    // 2. Pergunta ao ERPNext apenas as OS DESSES equipamentos, em blocos e em sequencia
+    //    (nunca em paralelo, para nao ocupar varios workers do Frappe ao mesmo tempo).
+    const maisRecentePorEquipamento = new Map<string, OrdemServico>();
+
+    for (const bloco of chunkArray(equipmentIds, EQUIPAMENTOS_POR_CONSULTA)) {
+      const filtrosComuns: ErpnextFilter[] = [
+        ["repair_status", "in", ["Liberado", "Liberado com Restrição"]],
+        ["data_cal_recomendada", "is", "set"],
+        ["data_cal", ">=", DATA_CAL_FLOOR],
+        ["informe_numero_serie", "in", bloco],
+      ];
+
+      const interna = await fetchErpnextResource<OrdemServico>("Ordem Servico Interna", {
+        filters: [["status_conserto", "=", "Finalizado"], ...filtrosComuns],
         orFilters: OR_FILTERS,
         fields: OS_FIELDS,
-      }),
-      fetchErpnextResource<OrdemServico>("Ordem Servico Externa", {
-        filters: filtersExterna,
+        orderBy: "data_cal desc",
+      });
+
+      const externa = await fetchErpnextResource<OrdemServico>("Ordem Servico Externa", {
+        filters: filtrosComuns,
         orFilters: OR_FILTERS,
         fields: OS_FIELDS,
-      }),
-    ]);
+        orderBy: "data_cal desc",
+      });
 
-    const merged = new Map<string, OrdemServico>();
-    for (const os of [...interna, ...externa]) {
-      if (!os.informe_numero_serie) continue;
-      const existing = merged.get(os.informe_numero_serie);
-      if (!existing || (os.data_cal ?? "") > (existing.data_cal ?? "")) {
-        merged.set(os.informe_numero_serie, os);
+      // 3. Junta Interna + Externa e fica com a calibracao de data_cal mais recente.
+      for (const os of [...interna, ...externa]) {
+        if (!os.informe_numero_serie) continue;
+        const atual = maisRecentePorEquipamento.get(os.informe_numero_serie);
+        if (!atual || (os.data_cal ?? "") > (atual.data_cal ?? "")) {
+          maisRecentePorEquipamento.set(os.informe_numero_serie, os);
+        }
       }
     }
 
-    const unmatched: string[] = [];
+    // 4. Grava tudo numa unica operacao no banco.
+    const registros = Array.from(maisRecentePorEquipamento.entries()).map(([equipmentId, os]) => ({
+      erpnext_equipment_id: equipmentId,
+      data_cal: os.data_cal,
+      data_cal_recomendada: os.data_cal_recomendada,
+      os_name: os.name,
+      anexo_certificado: os.anexo_certificado,
+    }));
 
-    for (const os of merged.values()) {
-      const { data, error } = await adminClient
-        .from("equipamentos")
-        .update({
-          ultima_calibracao: os.data_cal,
-          proxima_calibracao: os.data_cal_recomendada,
-          certificado: os.name,
-          erpnext_anexo_certificado: os.anexo_certificado,
-        })
-        .eq("erpnext_equipment_id", os.informe_numero_serie)
-        .select("id");
+    let atualizados = 0;
+    let semVinculo: string[] = [];
 
-      if (error) {
-        throw new Error(`Falha ao atualizar equipamento ${os.informe_numero_serie}: ${error.message}`);
+    if (registros.length > 0) {
+      const { data: resultado, error: applyError } = await adminClient
+        .rpc("aplicar_sync_erpnext", { p_registros: registros })
+        .single<{ atualizados: number; sem_vinculo: string[] }>();
+
+      if (applyError) {
+        throw new Error(`Falha ao aplicar atualizacoes: ${applyError.message}`);
       }
 
-      if (!data || data.length === 0) {
-        unmatched.push(os.informe_numero_serie as string);
-      }
+      atualizados = resultado?.atualizados ?? 0;
+      semVinculo = resultado?.sem_vinculo ?? [];
     }
 
-    if (unmatched.length > 0) {
+    if (semVinculo.length > 0) {
       await adminClient.rpc("registrar_log", {
         p_user_id: null,
-        p_acao: "Sincronizacao ERPNext: equipamento sem vinculo",
+        p_acao: "Sincronizacao ERPNext: OS sem equipamento vinculado",
         p_tabela: "equipamentos",
         p_registro_id: null,
         p_valor_anterior: null,
-        p_valor_novo: { unmatched },
+        p_valor_novo: { sem_vinculo: semVinculo },
       });
     }
 
@@ -142,7 +168,14 @@ Deno.serve(async (request) => {
       })
       .eq("id", true);
 
-    return jsonResponse({ success: true, processed: merged.size, unmatched: unmatched.length });
+    return jsonResponse({
+      success: true,
+      equipamentosConsultados: equipmentIds.length,
+      osEncontradas: registros.length,
+      atualizados,
+      semVinculo: semVinculo.length,
+      duracaoSegundos: Math.round((Date.now() - runStartedAt.getTime()) / 1000),
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Erro interno na sincronizacao com o ERPNext.";
     await adminClient
