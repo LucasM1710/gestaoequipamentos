@@ -5,12 +5,11 @@ import { Card, CardTitle } from "@/components/ui/card";
 import { Dialog } from "@/components/ui/dialog";
 import { Table, TBody, TD, TH, THead } from "@/components/ui/table";
 import { formatDate } from "@/lib/utils";
-import type { Calibracao, EquipamentoDocumento, EquipamentoVisao, ErpnextOrdemServico } from "@/types";
+import type { EquipamentoDocumento, EquipamentoVisao, ErpnextOrdemServico } from "@/types";
 
 interface ModalHistoricoCalibracoesProps {
   open: boolean;
   equipamento?: EquipamentoVisao | null;
-  historico: Calibracao[];
   ordensErpnext: ErpnextOrdemServico[];
   documentos: EquipamentoDocumento[];
   canManageDocuments: boolean;
@@ -30,7 +29,6 @@ function formatBytes(bytes: number) {
 export function ModalHistoricoCalibracoes({
   open,
   equipamento,
-  historico,
   ordensErpnext,
   documentos,
   canManageDocuments,
@@ -62,7 +60,7 @@ export function ModalHistoricoCalibracoes({
     >
       <div className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
         <Card className="bg-[linear-gradient(170deg,rgba(0,45,98,0.05),rgba(255,255,255,0.96))]">
-          <CardTitle className="mb-4">Historico de calibracoes (ERPNext)</CardTitle>
+          <CardTitle className="mb-4">Historico de calibracoes</CardTitle>
           <div className="overflow-x-auto">
             <Table>
               <THead>
@@ -108,33 +106,6 @@ export function ModalHistoricoCalibracoes({
             </Table>
           </div>
 
-          {historico.length > 0 ? (
-            <div className="mt-5">
-              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-textSecondary">
-                Registros anteriores (planilha)
-              </p>
-              <div className="overflow-x-auto">
-                <Table>
-                  <THead>
-                    <tr>
-                      <TH>Data de calibracao</TH>
-                      <TH>Status</TH>
-                      <TH>Criado em</TH>
-                    </tr>
-                  </THead>
-                  <TBody>
-                    {historico.map((item) => (
-                      <tr key={item.id} className="transition-colors hover:bg-appBg/50">
-                        <TD>{formatDate(item.data_calibracao)}</TD>
-                        <TD>{item.realizado ? "Realizado" : "Agendado"}</TD>
-                        <TD>{formatDate(item.created_at)}</TD>
-                      </tr>
-                    ))}
-                  </TBody>
-                </Table>
-              </div>
-            </div>
-          ) : null}
         </Card>
 
         <Card className="bg-[linear-gradient(170deg,rgba(5,195,221,0.06),rgba(255,255,255,0.98))]">

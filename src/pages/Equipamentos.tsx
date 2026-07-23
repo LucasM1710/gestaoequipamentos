@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { useAuth } from "@/hooks/useAuth";
 import { useEquipamentos } from "@/hooks/useEquipamentos";
-import type { Calibracao, EquipamentoDocumento, EquipamentoVisao, ErpnextOrdemServico } from "@/types";
+import type { EquipamentoDocumento, EquipamentoVisao, ErpnextOrdemServico } from "@/types";
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
 
@@ -26,7 +26,6 @@ export function Equipamentos() {
     saveEquipamento,
     deactivateEquipamento,
     requestReview,
-    getHistoricoCalibracoes,
     getOrdensServicoErpnext,
     abrirCertificadoErpnext,
     getDocumentosEquipamento,
@@ -41,7 +40,6 @@ export function Equipamentos() {
   const [modalOpen, setModalOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyEquipamento, setHistoryEquipamento] = useState<EquipamentoVisao | null>(null);
-  const [historyItems, setHistoryItems] = useState<Calibracao[]>([]);
   const [historyOrdensErpnext, setHistoryOrdensErpnext] = useState<ErpnextOrdemServico[]>([]);
   const [historyDocuments, setHistoryDocuments] = useState<EquipamentoDocumento[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
@@ -144,13 +142,11 @@ export function Equipamentos() {
         }}
       onViewHistory={async (item) => {
           try {
-            const [historico, ordens, documentos] = await Promise.all([
-              getHistoricoCalibracoes(item.id),
+            const [ordens, documentos] = await Promise.all([
               getOrdensServicoErpnext(item.id),
               getDocumentosEquipamento(item.id),
             ]);
             setHistoryEquipamento(item);
-            setHistoryItems(historico);
             setHistoryOrdensErpnext(ordens);
             setHistoryDocuments(documentos);
             setHistoryOpen(true);
@@ -160,13 +156,11 @@ export function Equipamentos() {
         }}
         onManageDocuments={async (item) => {
           try {
-            const [historico, ordens, documentos] = await Promise.all([
-              getHistoricoCalibracoes(item.id),
+            const [ordens, documentos] = await Promise.all([
               getOrdensServicoErpnext(item.id),
               getDocumentosEquipamento(item.id),
             ]);
             setHistoryEquipamento(item);
-            setHistoryItems(historico);
             setHistoryOrdensErpnext(ordens);
             setHistoryDocuments(documentos);
             setHistoryOpen(true);
@@ -252,7 +246,6 @@ export function Equipamentos() {
       <ModalHistoricoCalibracoes
         open={historyOpen}
         equipamento={historyEquipamento}
-        historico={historyItems}
         ordensErpnext={historyOrdensErpnext}
         documentos={historyDocuments}
         canManageDocuments={role === "admin"}

@@ -20,9 +20,9 @@ interface SyncState {
 
 const RUNNING_LOCK_MINUTES = 20;
 
-// So interessam calibracoes recentes: queremos a MAIS RECENTE de cada equipamento, entao
-// nao ha motivo para varrer o historico inteiro do ERPNext.
-const DATA_CAL_FLOOR = "2026-01-01";
+// Sem corte por ano: o volume ja e limitado pelos equipamentos vinculados (a consulta filtra
+// por informe_numero_serie), entao trazemos o historico completo de cada um. Isso alimenta a
+// tela de historico e permite ver quais OS antigas ainda estao sem certificado anexado.
 
 // Equipamentos por consulta ao ERPNext. Mantem a URL num tamanho seguro e o volume
 // de cada resposta pequeno.
@@ -103,7 +103,7 @@ Deno.serve(async (request) => {
       const filtrosComuns: ErpnextFilter[] = [
         ["repair_status", "in", ["Liberado", "Liberado com Restrição"]],
         ["data_cal_recomendada", "is", "set"],
-        ["data_cal", ">=", DATA_CAL_FLOOR],
+        ["data_cal", "is", "set"],
         ["informe_numero_serie", "in", bloco],
       ];
 
