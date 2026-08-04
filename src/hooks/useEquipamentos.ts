@@ -3,7 +3,14 @@ import type { EquipamentoFormValues } from "@/components/equipamentos/ModalEquip
 import { useAuth } from "@/hooks/useAuth";
 import { mockCalibracoes, mockEquipamentoDocumentos, mockEquipamentos, mockUsers } from "@/lib/mockData";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
+import { formatCertificado } from "@/lib/utils";
 import { getDiasParaVencer, getEquipamentoStatus } from "@/lib/statusUtils";
+
+// Normaliza para comparar OS/certificado ignorando pontuacao e caixa:
+// "OS-61769", "61769", "os 61769" -> "OS61769" / "61769".
+function normalizarBusca(valor: string) {
+  return valor.replace(/[^a-z0-9]/gi, "").toUpperCase();
+}
 import { invokeEdgeFunction } from "@/services/emailService";
 import { registerLog } from "@/services/logService";
 import type {
@@ -225,7 +232,14 @@ export function useEquipamentos() {
           return true;
         }
 
-        return item.serial_number.toLowerCase().includes(query) || item.owner_name.toLowerCase().includes(query);
+        const queryOs = normalizarBusca(query);
+        const certificadoOs = item.certificado ? normalizarBusca(formatCertificado(item.certificado)) : "";
+
+        return (
+          item.serial_number.toLowerCase().includes(query) ||
+          item.owner_name.toLowerCase().includes(query) ||
+          (queryOs.length > 0 && certificadoOs.includes(queryOs))
+        );
       })
       .filter((item) => (filters.status === "todos" ? true : item.status_calibracao === filters.status))
       .filter((item) => (filters.ownerId === "todos" ? true : item.owner_id === filters.ownerId));

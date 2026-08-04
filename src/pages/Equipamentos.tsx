@@ -91,7 +91,7 @@ export function Equipamentos() {
 
       <div className="grid gap-3 md:grid-cols-3">
         <Input
-          placeholder="Buscar por serial ou owner"
+          placeholder="Buscar por serial, owner ou OS"
           value={filters.search}
           autoComplete="off"
           onChange={(event) => setFilters((current) => ({ ...current, search: event.target.value }))}
