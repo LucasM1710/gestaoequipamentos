@@ -1,6 +1,7 @@
 import { getAdminClient } from "../_shared/client.ts";
 import { corsHeaders, jsonResponse } from "../_shared/cors.ts";
 import { chunkArray, fetchErpnextResource, type ErpnextFilter } from "../_shared/erpnext.ts";
+import { autoVincularEquipamentos } from "../_shared/vinculo.ts";
 
 interface OrdemServico {
   informe_numero_serie: string | null;
@@ -65,6 +66,24 @@ Deno.serve(async (request) => {
       .from("erpnext_sync_state")
       .update({ last_run_status: "running", last_run_started_at: runStartedAt.toISOString() })
       .eq("id", true);
+
+    // 0. Auto-recuperacao: liga equipamentos que ficaram sem vinculo (ex. apos reset + reimport
+    //    de planilha) usando o cadastro do ERP, para que suas OS entrem nesta mesma rodada.
+    //    Best-effort: uma falha aqui nao pode quebrar a sincronizacao das OS.
+    let autoVinculados = 0;
+    try {
+      const resultado = await autoVincularEquipamentos(adminClient);
+      autoVinculados = resultado.vinculados.length;
+    } catch (vinculoError) {
+      await adminClient.rpc("registrar_log", {
+        p_user_id: null,
+        p_acao: "Auto-vinculo na sincronizacao falhou",
+        p_tabela: "equipamentos",
+        p_registro_id: null,
+        p_valor_anterior: null,
+        p_valor_novo: { erro: vinculoError instanceof Error ? vinculoError.message : String(vinculoError) },
+      });
+    }
 
     // 1. Só nos importam os equipamentos que ja tem vinculo com o ERPNext.
     const { data: vinculados, error: vinculadosError } = await adminClient
@@ -208,6 +227,7 @@ Deno.serve(async (request) => {
 
     return jsonResponse({
       success: true,
+      autoVinculados,
       equipamentosConsultados: equipmentIds.length,
       osEncontradas: registros.length,
       atualizados,
