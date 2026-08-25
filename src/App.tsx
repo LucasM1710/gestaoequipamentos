@@ -13,6 +13,9 @@ const Usuarios = lazy(() => import("@/pages/Usuarios").then((module) => ({ defau
 const CRM = lazy(() => import("@/pages/CRM").then((module) => ({ default: module.CRM })));
 const Relatorios = lazy(() => import("@/pages/Relatorios").then((module) => ({ default: module.Relatorios })));
 const Logs = lazy(() => import("@/pages/Logs").then((module) => ({ default: module.Logs })));
+const VinculosPendentes = lazy(() =>
+  import("@/pages/VinculosPendentes").then((module) => ({ default: module.VinculosPendentes })),
+);
 
 function withSuspense(element: ReactNode) {
   return (
@@ -47,6 +50,9 @@ export function App() {
           <Route element={<ProtectedRoute allowedRoles={["admin", "gestor"]} />}>
             <Route path="/usuarios" element={withSuspense(<Usuarios />)} />
             <Route path="/logs" element={withSuspense(<Logs />)} />
+          </Route>
+          <Route element={<ProtectedRoute allowedRoles={["admin"]} />}>
+            <Route path="/vinculos-erpnext" element={withSuspense(<VinculosPendentes />)} />
           </Route>
           <Route element={<ProtectedRoute allowedRoles={["admin", "gestor", "lider"]} />}>
             <Route path="/crm" element={withSuspense(<CRM />)} />

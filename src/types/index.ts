@@ -39,6 +39,33 @@ export interface Calibracao {
   created_at: string;
 }
 
+export interface RevisaoCandidato {
+  codigo: string;
+  descricao: string | null;
+  customer: string | null;
+  numero_serie: string | null;
+}
+
+export interface RevisaoDuplicado {
+  equipamento_id: string;
+  serial_number: string | null;
+  customer: string | null;
+  candidatos: RevisaoCandidato[];
+}
+
+export interface RevisaoSimples {
+  equipamento_id: string;
+  serial_number: string | null;
+  customer: string | null;
+}
+
+export interface RevisaoErpnext {
+  resumo: { duplicados: number; naoEncontrados: number; placeholders: number };
+  duplicados: RevisaoDuplicado[];
+  naoEncontrados: RevisaoSimples[];
+  placeholders: RevisaoSimples[];
+}
+
 export interface ErpnextOrdemServico {
   id: string;
   equipamento_id: string;

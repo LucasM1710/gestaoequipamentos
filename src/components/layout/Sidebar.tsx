@@ -4,6 +4,7 @@ import {
   ChevronRight,
   ClipboardList,
   LayoutDashboard,
+  Link2,
   Mail,
   ShieldCheck,
   Users,
@@ -35,6 +36,7 @@ const items: Array<{
   { label: "Registro de Contato", href: "/crm", icon: BarChart3, roles: ["admin", "gestor", "lider"], section: "operacao" },
   { label: "Relatorios", href: "/relatorios", icon: BarChart3, roles: ["admin", "gestor", "lider"], section: "operacao" },
   { label: "Usuarios", href: "/usuarios", icon: Users, roles: ["admin", "gestor"], section: "controle" },
+  { label: "Vinculos ERPNext", href: "/vinculos-erpnext", icon: Link2, roles: ["admin"], section: "controle" },
   { label: "Logs", href: "/logs", icon: ShieldCheck, roles: ["admin", "gestor"], section: "controle" },
 ];
 
