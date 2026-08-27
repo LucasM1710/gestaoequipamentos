@@ -118,15 +118,39 @@ Deno.serve(async (request) => {
       return jsonResponse({ error: "Nenhum certificado anexado foi encontrado para este equipamento." }, { status: 404 });
     }
 
-    const fileUrl = caminho.startsWith("http") ? caminho : `${erpnextBaseUrl}${caminho}`;
-    if (!fileUrl.startsWith(erpnextBaseUrl)) {
+    const base = caminho.startsWith("http") ? caminho : `${erpnextBaseUrl}${caminho}`;
+    if (!base.startsWith(erpnextBaseUrl)) {
       return jsonResponse({ error: "Caminho de certificado invalido." }, { status: 400 });
     }
+    const caminhoRelativo = base.slice(erpnextBaseUrl.length); // "/private/files/....pdf"
 
-    const fileResponse = await fetch(fileUrl, { headers: erpnextAuth });
-    if (!fileResponse.ok) {
+    // A rota /private/files/ do Frappe nao aplica o token da API (trata como visitante -> 403).
+    // Entao tentamos primeiro o metodo de download via /api/ (onde o token vale), e o link
+    // direto so como reserva.
+    const tentativas = [
+      `${erpnextBaseUrl}/api/method/frappe.utils.file_manager.download_file?file_url=${encodeURIComponent(caminhoRelativo)}`,
+      `${erpnextBaseUrl}/api/method/frappe.core.doctype.file.file.download_file?file_url=${encodeURIComponent(caminhoRelativo)}`,
+      encodeURI(base),
+    ];
+
+    let fileResponse: Response | null = null;
+    for (const url of tentativas) {
+      const res = await fetch(url, { headers: erpnextAuth });
+      const ct = res.headers.get("content-type") ?? "";
+      if (res.ok && !ct.includes("text/html")) {
+        fileResponse = res;
+        break;
+      }
+      const corpoErro = await res.text().catch(() => "");
+      console.error(
+        "erpnext-certificado: tentativa falhou",
+        JSON.stringify({ url, status: res.status, contentType: ct, corpo: corpoErro.slice(0, 300) }),
+      );
+    }
+
+    if (!fileResponse) {
       return jsonResponse(
-        { error: `Nao foi possivel obter o certificado no ERPNext (${fileResponse.status}).` },
+        { error: "Nao foi possivel obter o certificado no ERPNext (sem acesso ao arquivo privado)." },
         { status: 502 },
       );
     }
